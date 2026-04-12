@@ -1,0 +1,304 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MAGASINIER
+  COMMERCIAL
+  COMPTABLE
+}
+
+enum MovementType {
+  IN
+  OUT
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum DocumentType {
+  PROFORMA
+  ORDER
+  BL
+  BV
+  INVOICE
+  CREDIT_NOTE
+  PURCHASE_ORDER
+  RECEIPT
+  PURCHASE_INVOICE
+  PURCHASE_RETURN
+  EXCHANGE
+}
+
+enum DocumentStatus {
+  DRAFT
+  VALIDATED
+  PARTIAL
+  PAID
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(COMMERCIAL)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  movements StockMovement[]
+  auditLogs AuditLog[]
+}
+
+model Tva {
+  id        String    @id @default(uuid())
+  name      String
+  rate      Float     // e.g. 20 for 20%
+  products  Product[]
+}
+
+model ProductCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  products    Product[]
+}
+
+model Product {
+  id                String         @id @default(uuid())
+  reference         String         @unique
+  designation       String
+  unit              String         // e.g. "Piece", "Kg"
+  purchasePrice     Float          // Standard purchase price
+  salePrice         Float          // Standard sale price
+  
+  // Colisage
+  piecesPerCarton   Int?
+  boxesPerCarton    Int?
+
+  categoryId        String
+  category          ProductCategory @relation(fields: [categoryId], references: [id])
+  
+  tvaId             String?
+  tva               Tva?           @relation(fields: [tvaId], references: [id])
+  
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  batches           Batch[]
+  inventories       Inventory[]
+  movements         StockMovement[]
+  documentLines     DocumentLine[]
+}
+
+model Warehouse {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  address     String?
+  capacity    Int?
+
+  inventories Inventory[]
+  movements   StockMovement[]
+}
+
+model Batch {
+  id              String    @id @default(uuid())
+  batchNumber     String
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id])
+  manufactureDate DateTime?
+  expirationDate  DateTime?
+  unitCost        Float     // PMP (Prix Moyen Pondéré)
+
+  inventories     Inventory[]
+  movements       StockMovement[]
+  documentLines   DocumentLine[]
+
+  @@unique([batchNumber, productId])
+}
+
+model Inventory {
+  id               String    @id @default(uuid())
+  productId        String
+  product          Product   @relation(fields: [productId], references: [id])
+  batchId          String
+  batch            Batch     @relation(fields: [batchId], references: [id])
+  warehouseId      String
+  warehouse        Warehouse @relation(fields: [warehouseId], references: [id])
+  quantity         Float     // Real physical quantity
+  reservedQuantity Float     // Virtual quantity for Orders
+
+  @@unique([productId, batchId, warehouseId])
+}
+
+model StockMovement {
+  id               String       @id @default(uuid())
+  productId        String
+  product          Product      @relation(fields: [productId], references: [id])
+  batchId          String
+  batch            Batch        @relation(fields: [batchId], references: [id])
+  warehouseId      String
+  warehouse        Warehouse    @relation(fields: [warehouseId], references: [id])
+  type             MovementType
+  quantity         Float
+  date             DateTime     @default(now())
+  userId           String
+  user             User         @relation(fields: [userId], references: [id])
+  sourceDocumentId String?      // Can refer to a Document.id or Transfer document
+}
+
+model Customer {
+  id             String     @id @default(uuid())
+  name           String
+  address        String?
+  contactPerson  String?
+  phone          String?
+  
+  // Informations Légales et Fiscales
+  legalStatus    String?
+  rc             String?    // Registre Commerce
+  mf             String?    // Matricule Fiscal
+  nis            String?    // Numéro d'Identification Statistique
+  ai             String?    // Article Imposition
+  
+  paymentTerms   String?
+  creditLimit    Float?
+
+  documents      Document[] @relation("CustomerDocuments")
+  payments       Payment[]  @relation("CustomerPayments")
+}
+
+model Supplier {
+  id             String     @id @default(uuid())
+  name           String
+  address        String?
+  country        String?    // Pays d'origine
+  contactPerson  String?
+  phone          String?
+  
+  // Informations Légales et Fiscales
+  legalStatus    String?
+  rc             String?    // Registre Commerce
+  mf             String?    // Matricule Fiscal
+  nis            String?    // Numéro d'Identification Statistique
+  ai             String?    // Article Imposition
+
+  paymentTerms   String?
+  
+  documents      Document[] @relation("SupplierDocuments")
+  payments       Payment[]  @relation("SupplierPayments")
+}
+
+model ImportFolder {
+  id          String     @id @default(uuid())
+  reference   String     @unique
+  description String?
+  status      String     @default("OPEN")
+  createdAt   DateTime   @default(now())
+
+  documents   Document[] // Purchase Orders linked to this import
+}
+
+model Document {
+  id              String         @id @default(uuid())
+  type            DocumentType
+  date            DateTime       @default(now())
+  status          DocumentStatus @default(DRAFT)
+  
+  customerId      String?
+  customer        Customer?      @relation("CustomerDocuments", fields: [customerId], references: [id])
+  
+  supplierId      String?
+  supplier        Supplier?      @relation("SupplierDocuments", fields: [supplierId], references: [id])
+
+  importFolderId  String?
+  importFolder    ImportFolder?  @relation(fields: [importFolderId], references: [id])
+
+  grossTotal      Float          @default(0) // Total HT
+  discountTotal   Float          @default(0) // Global discount
+  taxTotal        Float          @default(0) // Total TVA
+  netTotal        Float          @default(0) // Total TTC
+
+  lines           DocumentLine[]
+  paymentMatches  PaymentMatch[]
+  shippingCosts   ShippingCost[]
+  
+  // To link a BL to an Invoice, or a Reception to a Purchase Order
+  parentId        String?
+  parentDocument  Document?      @relation("DocumentLinks", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  childDocuments  Document[]     @relation("DocumentLinks")
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  currency        String?        @default("DZD")
+  exchangeRate    Float?         @default(1.0)
+}
+
+model DocumentLine {
+  id           String    @id @default(uuid())
+  documentId   String
+  document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product   @relation(fields: [productId], references: [id])
+  batchId      String?
+  batch        Batch?    @relation(fields: [batchId], references: [id])
+  quantity     Float
+  unitPrice    Float     // Sold/Bought price per unit
+  discount     Float     @default(0)
+  taxRate      Float     @default(0)
+}
+
+model Payment {
+  id             String         @id @default(uuid())
+  amount         Float
+  paymentMethod  String         // e.g. "Cash", "Transfer", "Check"
+  date           DateTime       @default(now())
+  
+  customerId     String?
+  customer       Customer?      @relation("CustomerPayments", fields: [customerId], references: [id])
+  
+  supplierId     String?
+  supplier       Supplier?      @relation("SupplierPayments", fields: [supplierId], references: [id])
+
+  matches        PaymentMatch[]
+}
+
+model PaymentMatch {
+  id            String    @id @default(uuid())
+  paymentId     String
+  payment       Payment   @relation(fields: [paymentId], references: [id])
+  documentId    String    // The Facture
+  document      Document  @relation(fields: [documentId], references: [id])
+  amountMatched Float
+}
+
+model ShippingCost {
+  id             String    @id @default(uuid())
+  documentId     String    // usually Purchase Invoice or Receipt
+  document       Document  @relation(fields: [documentId], references: [id])
+  costType       String    // e.g. "Douane", "Transport", "Assurance"
+  amount         Float
+}
+
+model Expense {
+  id             String    @id @default(uuid())
+  category       String    // e.g. "Loyer", "Electricité"
+  amount         Float
+  date           DateTime  @default(now())
+  description    String?
+}
+
+model AuditLog {
+  id           String    @id @default(uuid())
+  userId       String?
+  user         User?     @relation(fields: [userId], references: [id])
+  action       String    // e.g. "UPDATE_STOCK", "CREATE_INVOICE"
+  details      String    // e.g. "Nesrine a modifié le stock du lot X"
+  timestamp    DateTime  @default(now())
+}
