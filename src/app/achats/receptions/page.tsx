@@ -31,14 +31,23 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 
+import { getReceiptDocuments } from "@/app/actions/receptions.actions";
+
 export default function ReceptionsPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
+  const [receptions, setReceptions] = useState<any[]>([]);
 
-  const mockReceptions = [
-    { id: "1", reference: "REC-2026-001", orderRef: "INV-25WLQ052", supplier: "China Industrial Co.", dzdTotal: 1250000, date: "2026-04-12", status: "VALIDATED" },
-    { id: "2", reference: "REC-2026-002", orderRef: "PO-7781", supplier: "Istanbul Trade SARL", dzdTotal: 450000, date: "2026-04-10", status: "DRAFT" },
-  ];
+  React.useEffect(() => {
+    getReceiptDocuments().then(res => {
+      if (res.success) setReceptions(res.data || []);
+    });
+  }, []);
+
+  const filteredReceptions = receptions.filter(r => 
+    r.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 animate-in fade-in duration-300">
@@ -92,14 +101,14 @@ export default function ReceptionsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockReceptions.map(rec => (
+              {filteredReceptions.map(rec => (
                 <TableRow key={rec.id}>
                   <TableCell className="font-medium text-slate-900 dark:text-slate-100">{rec.reference}</TableCell>
-                  <TableCell className="text-slate-500">{rec.orderRef}</TableCell>
-                  <TableCell>{rec.supplier}</TableCell>
-                  <TableCell>{rec.date}</TableCell>
+                  <TableCell className="text-slate-500">{rec.orderRef || "Direct"}</TableCell>
+                  <TableCell>{rec.supplier?.name || "N/A"}</TableCell>
+                  <TableCell>{new Date(rec.date).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right font-mono font-medium text-slate-700 dark:text-slate-300">
-                    {rec.dzdTotal.toLocaleString()} DA
+                    {rec.netTotal.toLocaleString()} DA
                   </TableCell>
                   <TableCell>
                     {rec.status === "VALIDATED" 
@@ -109,10 +118,8 @@ export default function ReceptionsPage() {
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
+                      <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 outline-none transition-colors">
+                        <MoreVertical className="h-4 w-4 text-slate-500" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>

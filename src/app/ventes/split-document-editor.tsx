@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  FileText, ArrowLeft, Trash2, Save, Printer, User, Search, Calculator, ChevronDown, ChevronRight, PackageCheck, Layers
+  FileText, ArrowLeft, Trash2, Save, Printer, User, Search, Calculator, ChevronDown, ChevronRight, PackageCheck, Layers, Plus
 } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -19,6 +19,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { createSaleDocument } from "@/app/actions/ventes.actions";
+import { generateProformaPDF } from "@/lib/pdf-generator";
 
 type Inventory = {
   batchId: string;
@@ -73,6 +74,7 @@ export default function SplitDocumentEditor({ documentType, clients, products }:
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
+  const [savedDoc, setSavedDoc] = useState<any>(null);
 
   const { register, control, watch, handleSubmit, setValue } = useForm<FormValues>({
     defaultValues: {
@@ -158,7 +160,8 @@ export default function SplitDocumentEditor({ documentType, clients, products }:
 
     if (res.success) {
       toast.success("Document enregistré.", { id: t });
-      router.push(`/ventes/${documentType.toLowerCase()}`);
+      setSavedDoc(res.data);
+      // Optionnel: router.push(`/ventes/${documentType.toLowerCase()}`);
     } else {
       toast.error(res.error, { id: t });
     }
@@ -208,6 +211,27 @@ export default function SplitDocumentEditor({ documentType, clients, products }:
           <Button onClick={handleSubmit(onSubmit)} className="h-9 bg-indigo-600 hover:bg-indigo-700 shadow-lg text-white ml-2 gap-2">
             <Save className="h-4 w-4" /> Sauvegarder
           </Button>
+          
+          <Button 
+            variant="outline" 
+            className={`h-9 border-indigo-200 gap-2 ${savedDoc ? 'bg-indigo-50 text-indigo-700' : 'text-slate-400'}`}
+            disabled={!savedDoc}
+            onClick={() => {
+              const customer = clients.find(c => c.id === savedDoc.customerId);
+              generateProformaPDF({
+                ...savedDoc,
+                customerName: customer?.name || "Client de passage",
+                customerAddress: (customer as any)?.address || "/",
+                customerPhone: (customer as any)?.phone || "/",
+                customerRC: (customer as any)?.rc || "/",
+                customerNIS: (customer as any)?.nis || "/",
+                customerMF: (customer as any)?.mf || "/",
+                customerAI: (customer as any)?.ai || "/"
+              });
+            }}
+          >
+            <Printer className="h-4 w-4" /> Imprimer PDF
+          </Button>
         </div>
       </div>
 
@@ -229,8 +253,8 @@ export default function SplitDocumentEditor({ documentType, clients, products }:
                const isOpen = openItems[prd.id];
 
                return (
-                 <Collapsible key={prd.id} open={isOpen} onOpenChange={(val) => setOpenItems(prev => ({...prev, [prd.id]: val}))}>
-                   <CollapsibleTrigger asChild>
+                 <Collapsible key={prd.id} open={!!isOpen} onOpenChange={(val) => setOpenItems(prev => ({...prev, [prd.id]: val}))}>
+                   <CollapsibleTrigger className="w-full text-left bg-transparent p-0 border-none outline-none">
                      <div className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer select-none transition-colors border border-transparent hover:border-slate-200">
                        <div className="flex flex-col items-start text-left flex-1">
                          <span className="font-semibold text-sm text-slate-800 dark:text-slate-200 line-clamp-1">{prd.designation}</span>

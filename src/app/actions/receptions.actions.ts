@@ -132,3 +132,20 @@ export async function createReceiptDocument(data: CreateReceiptInput) {
     return { success: false, error: "Impossible de valider le Bon de Réception." };
   }
 }
+
+export async function getReceiptDocuments() {
+  try {
+    const receipts = await prisma.document.findMany({
+      where: { type: "RECEIPT" },
+      include: {
+        supplier: true,
+        _count: { select: { lines: true } }
+      },
+      orderBy: { date: 'desc' }
+    });
+    return { success: true, data: receipts };
+  } catch (error) {
+    console.error("Erreur lecture réceptions:", error);
+    return { success: false, error: "Erreur serveur" };
+  }
+}

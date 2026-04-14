@@ -34,8 +34,8 @@ export async function createSaleDocument(data: CreateDocumentInput) {
         type: data.type,
         date: data.date,
         reference: data.reference,
-        status: data.type === 'PROFORMA' ? 'DRAFT' : 'VALIDATED', // Simplification: BL et BV sont validés
-        customerId: data.customerId,
+        status: data.type === 'PROFORMA' ? 'DRAFT' : 'VALIDATED',
+        customerId: data.customerId === "COMPTANT" ? null : data.customerId,
         paymentMethod: data.paymentMethod,
         grossTotal: data.grossTotal,
         discountTotal: data.discountTotal,
@@ -53,7 +53,11 @@ export async function createSaleDocument(data: CreateDocumentInput) {
         }
       },
       include: {
-        lines: true
+        lines: {
+          include: {
+            product: true
+          }
+        }
       }
     });
 
