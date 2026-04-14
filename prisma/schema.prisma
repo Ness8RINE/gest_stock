@@ -206,9 +206,11 @@ model ImportFolder {
 
 model Document {
   id              String         @id @default(uuid())
+  reference       String?        @unique // Optionnel au début pour éviter plantage si db non vide
   type            DocumentType
   date            DateTime       @default(now())
   status          DocumentStatus @default(DRAFT)
+  paymentMethod   String?        // virement, cheque, espece, a_terme
   
   customerId      String?
   customer        Customer?      @relation("CustomerDocuments", fields: [customerId], references: [id])
@@ -222,6 +224,7 @@ model Document {
   grossTotal      Float          @default(0) // Total HT
   discountTotal   Float          @default(0) // Global discount
   taxTotal        Float          @default(0) // Total TVA
+  stampTax        Float          @default(0) // Droit de Timbre
   netTotal        Float          @default(0) // Total TTC
 
   lines           DocumentLine[]

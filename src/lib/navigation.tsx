@@ -35,7 +35,7 @@ export const NAVIGATION = [
       { title: "Fournisseurs", path: "/achats/fournisseurs" },
       { title: "Dossiers d'importation", path: "/achats/importations" },
       { title: "Commandes Fournisseur", path: "/achats/commandes" },
-      { title: "Bons de Réception", path: "/achats/receptions" },
+      { title: "Nouveau Bon de Réception", path: "/achats/receptions/create" },
       { title: "Factures Fournisseur", path: "/achats/factures" },
     ],
   },
@@ -44,9 +44,10 @@ export const NAVIGATION = [
     icon: <ShoppingCart size={20} />,
     submenus: [
       { title: "Clients", path: "/ventes/clients" },
-      { title: "Devis & Proforma", path: "/ventes/proforma" },
-      { title: "Commandes & BL/BV", path: "/ventes/commandes" },
-      { title: "Factures & Avoirs", path: "/ventes/factures" },
+      { title: "Nouvelle Proforma", path: "/ventes/proforma/create" },
+      { title: "Nouveau BL", path: "/ventes/bl/create" },
+      { title: "Nouveau BV", path: "/ventes/bv/create" },
+      { title: "Factures & Ventes (Moteur)", path: "/ventes/commandes" },
     ],
   },
   {

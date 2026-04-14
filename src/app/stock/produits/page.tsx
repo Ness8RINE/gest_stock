@@ -38,21 +38,18 @@ export default function ProduitsPage() {
       if (catRes.success && catRes.data) {
         setCategories(catRes.data as {id: string, name: string}[]);
         const map: Record<string, { label: string, color: string }> = {};
-        catRes.data.forEach((c: any) => {
+        const colors = [
+          "bg-blue-100 text-blue-700 border-blue-200", 
+          "bg-amber-100 text-amber-700 border-amber-200",
+          "bg-emerald-100 text-emerald-700 border-emerald-200",
+          "bg-purple-100 text-purple-700 border-purple-200",
+          "bg-pink-100 text-pink-700 border-pink-200",
+          "bg-rose-100 text-rose-700 border-rose-200",
+        ];
+        catRes.data.forEach((c: any, index: number) => {
           map[c.id] = {
             label: c.name,
-          // Couleurs dynamiques selon l'ID
-          const colors = [
-            "bg-blue-100 text-blue-700 border-blue-200", 
-            "bg-amber-100 text-amber-700 border-amber-200",
-            "bg-emerald-100 text-emerald-700 border-emerald-200",
-            "bg-purple-100 text-purple-700 border-purple-200",
-            "bg-pink-100 text-pink-700 border-pink-200",
-            "bg-rose-100 text-rose-700 border-rose-200",
-          ];
-          map[c.id] = {
-            label: c.name,
-            color: colors[c.name.length % colors.length] + " dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+            color: colors[index % colors.length] + " dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
           };
         });
         setCategoryMap(map);

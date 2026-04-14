@@ -18,6 +18,27 @@ export async function getProducts() {
   }
 }
 
+export async function getProductsWithStock() {
+  try {
+    const products = await prisma.product.findMany({
+      include: {
+        category: true,
+        inventories: {
+          include: {
+            batch: true,
+            warehouse: true
+          }
+        }
+      },
+      orderBy: { designation: 'asc' }
+    });
+    return { success: true, data: products };
+  } catch (error) {
+    console.error("Erreur récupération stock:", error);
+    return { success: false, error: "Erreur récupération" };
+  }
+}
+
 export async function createProduct(data: any) {
   try {
     const product = await prisma.product.create({
