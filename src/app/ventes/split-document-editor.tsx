@@ -18,7 +18,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { createSaleDocument } from "@/app/actions/ventes.actions";
+import { createSaleDocument, getNextReference, updateSaleDocument } from "@/app/actions/ventes.actions";
 import { generateProformaPDF } from "@/lib/pdf-generator";
 
 type Inventory = {
@@ -49,6 +49,7 @@ type SplitEditorProps = {
   documentType: "PROFORMA" | "BL" | "BV";
   clients: Customer[];
   products: Product[];
+  initialData?: any;
 };
 
 type FormValues = {
@@ -68,40 +69,102 @@ type FormValues = {
     discount: number;
     taxRate: number;
   }[];
+  globalDiscountPercent: number;
 };
 
-export default function SplitDocumentEditor({ documentType, clients, products }: SplitEditorProps) {
+export default function SplitDocumentEditor({ documentType, clients, products, initialData }: SplitEditorProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
   const [savedDoc, setSavedDoc] = useState<any>(null);
 
-  const { register, control, watch, handleSubmit, setValue } = useForm<FormValues>({
+  const { register, control, watch, handleSubmit, setValue, reset } = useForm<FormValues>({
     defaultValues: {
-      reference: "",
-      date: new Date().toISOString().split("T")[0],
-      customerId: "",
-      paymentMethod: "ESPECE",
-      applyStampTax: false,
+      reference: initialData?.reference || "",
+      date: initialData?.date ? new Date(initialData.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      customerId: initialData?.customerId || "",
+      paymentMethod: initialData?.paymentMethod || "ESPECE",
+      applyStampTax: !!initialData?.stampTax,
+      globalDiscountPercent: 0, 
       lines: []
     }
   });
+
+  useEffect(() => {
+    if (initialData && initialData.lines) {
+      const formattedLines = initialData.lines.map((l: any) => ({
+        productId: l.productId,
+        designation: l.product?.designation || l.designation,
+        colisage: l.product?.piecesPerCarton || 1,
+        cartons: l.quantity / (l.product?.piecesPerCarton || 1),
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        discount: l.discount || 0,
+        taxRate: l.taxRate || 19
+      }));
+      
+      setValue("lines", formattedLines);
+      
+      // Calcul intelligent de la remise globale
+      // Somme des lignes après remise ligne mais avant remise globale
+      let sumLinesNetHT = 0;
+      formattedLines.forEach((l: any) => {
+        sumLinesNetHT += (l.quantity * l.unitPrice) * (1 - l.discount / 100);
+      });
+      
+      if (sumLinesNetHT > 0 && initialData.grossTotal < sumLinesNetHT) {
+        const diff = sumLinesNetHT - initialData.grossTotal;
+        const percent = (diff / sumLinesNetHT) * 100;
+        setValue("globalDiscountPercent", Math.round(percent * 100) / 100);
+      }
+    }
+  }, [initialData, setValue]);
 
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
 
   const watchLines = watch("lines");
   const applyStamp = watch("applyStampTax");
+  const globalDiscount = watch("globalDiscountPercent");
+
+  // Auto-reference au montage (seulement en création)
+  useEffect(() => {
+    const fetchRef = async () => {
+      const ref = await getNextReference(documentType);
+      setValue("reference", ref);
+    };
+    if (!initialData && !watch("reference")) {
+       fetchRef();
+    }
+  }, [documentType, setValue, initialData]);
 
   // Calculations
-  const { grossTotal, taxTotal, netTotalBeforeStamp } = useMemo(() => {
-    let g = 0, t = 0;
+  const { grossTotalBase, taxTotal, netTotalBeforeStamp, totalLineDiscount } = useMemo(() => {
+    let g = 0, t = 0, dLines = 0;
     watchLines.forEach((line) => {
-      const lineNet = (line.quantity || 0) * (line.unitPrice || 0) * (1 - (line.discount || 0) / 100);
+      const lineBrut = (line.quantity || 0) * (line.unitPrice || 0);
+      const lineDisc = lineBrut * ((line.discount || 0) / 100);
+      const lineNet = lineBrut - lineDisc;
+      
+      dLines += lineDisc;
       g += lineNet;
       t += lineNet * ((line.taxRate || 0) / 100);
     });
-    return { grossTotal: g, taxTotal: t, netTotalBeforeStamp: g + t };
-  }, [watchLines]);
+
+    // Appliquer la remise globale sur le total HT
+    const globalDiscAmount = g * ((globalDiscount || 0) / 100);
+    const finalHT = g - globalDiscAmount;
+    const finalTax = t * (1 - (globalDiscount || 0) / 100); // Proportionnel
+
+    return { 
+      grossTotalBase: finalHT, 
+      taxTotal: finalTax, 
+      netTotalBeforeStamp: finalHT + finalTax,
+      totalLineDiscount: dLines + globalDiscAmount
+    };
+  }, [watchLines, globalDiscount]);
+
+  const grossTotal = grossTotalBase; // Pour compatibilité avec la suite du code
+
 
   const stampValue = applyStamp ? Math.min(netTotalBeforeStamp * 0.01, 2500) : 0; // Algérie standard : 1% max 2500 DA
   const netTotal = netTotalBeforeStamp + stampValue;
@@ -137,8 +200,9 @@ export default function SplitDocumentEditor({ documentType, clients, products }:
     if (!data.customerId && documentType !== "BV") return toast.error("Client obligatoire pour ce type de document.");
     if (data.lines.length === 0) return toast.error("Le document est vide.");
 
-    const t = toast.loading("Enregistrement...");
-    const res = await createSaleDocument({
+    const t = toast.loading(initialData ? "Mise à jour..." : "Enregistrement...");
+    
+    const docData = {
       type: documentType,
       reference: data.reference,
       date: new Date(data.date),
@@ -146,7 +210,7 @@ export default function SplitDocumentEditor({ documentType, clients, products }:
       paymentMethod: data.paymentMethod,
       stampTax: stampValue,
       grossTotal: grossTotal,
-      discountTotal: 0, // Remise gérée par ligne
+      discountTotal: totalLineDiscount,
       taxTotal: taxTotal,
       netTotal: netTotal,
       lines: data.lines.map(l => ({
@@ -156,12 +220,18 @@ export default function SplitDocumentEditor({ documentType, clients, products }:
         discount: l.discount,
         taxRate: l.taxRate
       }))
-    });
+    };
+
+    const res = initialData 
+      ? await updateSaleDocument(initialData.id, docData)
+      : await createSaleDocument(docData);
 
     if (res.success) {
-      toast.success("Document enregistré.", { id: t });
+      toast.success(initialData ? "Document mis à jour." : "Document enregistré.", { id: t });
       setSavedDoc(res.data);
-      // Optionnel: router.push(`/ventes/${documentType.toLowerCase()}`);
+      if (initialData) {
+        setTimeout(() => router.push(`/ventes/${documentType.toLowerCase()}`), 1000);
+      }
     } else {
       toast.error(res.error, { id: t });
     }
@@ -184,7 +254,7 @@ export default function SplitDocumentEditor({ documentType, clients, products }:
           <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-5 w-5" /></Button>
           <div className="flex flex-col">
             <h1 className="text-xl font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-tight">{getDocTitle()}</h1>
-            <p className="text-xs text-slate-500 font-medium">Création en cours...</p>
+            <p className="text-xs text-slate-500 font-medium">{initialData ? "Modification" : "Création"} en cours...</p>
           </div>
         </div>
 
@@ -312,9 +382,9 @@ export default function SplitDocumentEditor({ documentType, clients, products }:
 
         {/* RIGHT PANEL: FACTURIER */}
         <div className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-900/50 relative">
-          <div className="flex-1 overflow-auto p-4">
-            <div className="bg-white dark:bg-slate-950 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 w-full overflow-hidden min-w-[800px]">
-              <Table>
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col">
+            <div className="bg-white dark:bg-slate-950 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
+              <Table className="min-w-[1200px] w-full table-fixed border-collapse">
                 <TableHeader className="bg-slate-100 dark:bg-slate-900">
                   <TableRow>
                     <TableHead className="w-[30%]">Désignation</TableHead>
@@ -388,8 +458,22 @@ export default function SplitDocumentEditor({ documentType, clients, products }:
                   <div className="flex items-center space-x-2 bg-slate-800 p-2 px-3 rounded-md border border-slate-700">
                     <Checkbox id="timbre" checked={applyStamp} onCheckedChange={(c) => setValue("applyStampTax", c as boolean)} className="border-slate-500 data-[state=checked]:bg-indigo-500" />
                     <label htmlFor="timbre" className="text-xs font-medium text-slate-300 cursor-pointer">
-                      Appliquer Droit de Timbre (1%)
+                      Timbre (1%)
                     </label>
+                  </div>
+                  
+                  <div className="h-8 w-px bg-slate-700"></div>
+
+                  <div className="flex items-center gap-2 bg-slate-800 p-1 px-2 rounded-md border border-slate-700">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Remise Globale</span>
+                    <div className="relative">
+                      <Input 
+                        type="number" 
+                        {...register("globalDiscountPercent", { valueAsNumber: true })} 
+                        className="h-7 w-16 bg-slate-950 border-slate-600 text-white text-xs text-center pr-5" 
+                      />
+                      <span className="absolute right-1.5 top-1.5 text-[10px] text-slate-500">%</span>
+                    </div>
                   </div>
                 </div>
 

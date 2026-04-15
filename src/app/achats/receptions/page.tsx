@@ -24,6 +24,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -122,10 +123,12 @@ export default function ReceptionsPage() {
                         <MoreVertical className="h-4 w-4 text-slate-500" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem className="cursor-pointer text-indigo-600">
-                          <Eye className="mr-2 h-4 w-4" /> Voir le dossier
-                        </DropdownMenuItem>
+                        <DropdownMenuGroup>
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem className="cursor-pointer text-indigo-600">
+                             <Eye className="mr-2 h-4 w-4" /> Voir le dossier
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

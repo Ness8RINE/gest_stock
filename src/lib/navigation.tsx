@@ -44,7 +44,7 @@ export const NAVIGATION = [
     icon: <ShoppingCart size={20} />,
     submenus: [
       { title: "Clients", path: "/ventes/clients" },
-      { title: "Nouvelle Proforma", path: "/ventes/proforma/create" },
+      { title: "Proformas", path: "/ventes/proforma" },
       { title: "Nouveau BL", path: "/ventes/bl/create" },
       { title: "Nouveau BV", path: "/ventes/bv/create" },
       { title: "Factures & Ventes (Moteur)", path: "/ventes/commandes" },

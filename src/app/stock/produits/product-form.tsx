@@ -76,16 +76,16 @@ function FieldWithIcon({
 export function ProductForm({ initialData, categories, onSubmit, onCancel }: ProductFormProps) {
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema) as any,
-    defaultValues: initialData || {
-      reference: "",
-      designation: "",
-      categoryId: "",
-      unit: "Pièce",
-      purchasePrice: 0,
-      salePrice: 0,
-      tvaRate: 19, // Standard 19%
-      piecesPerCarton: 1,
-      boxesPerCarton: 1,
+    defaultValues: {
+      reference: initialData?.reference ?? "",
+      designation: initialData?.designation ?? "",
+      categoryId: initialData?.categoryId ?? "",
+      unit: initialData?.unit ?? "Pièce",
+      purchasePrice: initialData?.purchasePrice ?? 0,
+      salePrice: initialData?.salePrice ?? 0,
+      tvaRate: initialData?.tvaRate ?? 19,
+      piecesPerCarton: initialData?.piecesPerCarton ?? 1,
+      boxesPerCarton: initialData?.boxesPerCarton ?? 1,
     },
   });
 

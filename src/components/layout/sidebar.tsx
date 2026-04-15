@@ -48,7 +48,7 @@ export function Sidebar() {
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 py-4">
+      <ScrollArea className="flex-1 py-4 h-[calc(100vh-120px)]">
         <nav className="pl-3 pr-3 space-y-1">
           {NAVIGATION.map((item, idx) => (
             <SidebarItem 
