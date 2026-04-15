@@ -175,6 +175,7 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
     append({
       productId: prd.id,
       designation: prd.designation + (batch ? ` [Lot: ${batch.batch.batchNumber}]` : ""),
+      warehouseId: batch?.warehouseId,
       batchId: batch?.batchId,
       colisage: colisage,
       cartons: 1,
@@ -218,7 +219,9 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
         quantity: l.quantity,
         unitPrice: l.unitPrice,
         discount: l.discount,
-        taxRate: l.taxRate
+        taxRate: l.taxRate,
+        warehouseId: l.warehouseId,
+        batchId: l.batchId
       }))
     };
 
@@ -387,14 +390,20 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
               <Table className="min-w-[1200px] w-full table-fixed">
                 <TableHeader className="bg-slate-100 dark:bg-slate-900 sticky top-0 z-10">
                   <TableRow>
-                    <TableHead className="w-[30%]">Désignation</TableHead>
-                    <TableHead className="w-[10%] whitespace-nowrap text-center">Colisage</TableHead>
-                    <TableHead className="w-[10%] text-center">Nbr. Cartons</TableHead>
-                    <TableHead className="w-[10%] text-center">Quantité</TableHead>
-                    <TableHead className="w-[12%] text-right">P.U HT</TableHead>
-                    <TableHead className="w-[8%] text-center">Rem. %</TableHead>
-                    <TableHead className="w-[8%] text-center">TVA</TableHead>
-                    <TableHead className="w-[12%] text-right">Montant HT</TableHead>
+                    <TableHead className="w-[20%]">Désignation</TableHead>
+                    {(documentType === "BL" || documentType === "BV") && (
+                      <>
+                        <TableHead className="w-[12%]">Dépôt</TableHead>
+                        <TableHead className="w-[10%]">N° Lot</TableHead>
+                      </>
+                    )}
+                    <TableHead className="w-[8%] whitespace-nowrap text-center">Colisage</TableHead>
+                    <TableHead className="w-[8%] text-center">Cartons</TableHead>
+                    <TableHead className="w-[8%] text-center">Quantité</TableHead>
+                    <TableHead className="w-[10%] text-right">P.U HT</TableHead>
+                    <TableHead className="w-[7%] text-center">Rem. %</TableHead>
+                    <TableHead className="w-[7%] text-center">TVA</TableHead>
+                    <TableHead className="w-[10%] text-right">S.Total HT</TableHead>
                     <TableHead className="w-[40px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -414,9 +423,45 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
                     return (
                       <TableRow key={field.id} className="group hover:bg-slate-50 h-14">
                         <TableCell className="p-2">
-                          <span className="text-xs font-semibold block">{line.designation}</span>
+                          <span className="text-xs font-semibold block leading-tight">{line.designation}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">{line.reference}</span>
                         </TableCell>
-                        <TableCell className="p-2 text-center text-xs font-mono text-slate-500 bg-slate-50 dark:bg-slate-900/30">
+
+                        {(documentType === "BL" || documentType === "BV") && (
+                          <>
+                            <TableCell className="p-1">
+                              <select 
+                                {...register(`lines.${index}.warehouseId`)}
+                                className="w-full h-8 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-1"
+                              >
+                                <option value="">Choisir dépôt</option>
+                                {/* Note: Ici on devrait mapper les dépôts réels du produit */}
+                                {products.find(p => p.id === line.productId)?.inventories.map(inv => (
+                                  <option key={inv.warehouse.id} value={inv.warehouse.id}>
+                                    {inv.warehouse.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </TableCell>
+                            <TableCell className="p-1">
+                              <select 
+                                {...register(`lines.${index}.batchId`)}
+                                className="w-full h-8 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-1"
+                              >
+                                <option value="">Choisir lot</option>
+                                {products.find(p => p.id === line.productId)?.inventories
+                                  .filter(inv => !watchLines[index].warehouseId || inv.warehouseId === watchLines[index].warehouseId)
+                                  .map(inv => (
+                                    <option key={inv.batch.id} value={inv.batch.id}>
+                                      {inv.batch.batchNumber} ({inv.quantity})
+                                    </option>
+                                  ))}
+                              </select>
+                            </TableCell>
+                          </>
+                        )}
+
+                        <TableCell className="p-2 text-center text-xs font-mono text-slate-500 bg-slate-50/50 dark:bg-slate-900/30">
                           {col} pcs
                         </TableCell>
                         <TableCell className="p-2">

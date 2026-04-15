@@ -119,7 +119,13 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
     // Titre Document (Plus grand selon demande)
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    const tit = data.type === "PROFORMA" ? "Facture Proforma" : (data.type === "BL" ? "Bon de Livraison" : "Document");
+    const titles: Record<string, string> = {
+      "PROFORMA": "Facture Proforma",
+      "BL": "Bon de Livraison",
+      "BV": "Bon de Vente",
+      "INVOICE": "Facture"
+    };
+    const tit = titles[data.type] || "Document";
     doc.text(tit, docX, y + 16);
 
     // Numéro et Mode (Plus petits et non gras)
@@ -131,7 +137,20 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
     doc.text("Mode de paiement: " + pm, docX, y + 30);
   };
 
-  const products = data.lines || [];
+  const rawLines = data.lines || [];
+  
+  // Regroupement par produit (pour le PDF seulement) pour éviter les doublons si sortie multi-dépots
+  const groupedProducts: any[] = [];
+  rawLines.forEach((line: any) => {
+    const existing = groupedProducts.find(p => p.productId === line.productId && p.unitPrice === line.unitPrice);
+    if (existing) {
+      existing.quantity += line.quantity;
+    } else {
+      groupedProducts.push({ ...line });
+    }
+  });
+
+  const products = groupedProducts;
   const chunkSize = 20; // Maximum 20 produits par page
   const totalPages = Math.ceil(products.length / chunkSize) || 1;
 

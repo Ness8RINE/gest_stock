@@ -45,9 +45,9 @@ export const NAVIGATION = [
     submenus: [
       { title: "Clients", path: "/ventes/clients" },
       { title: "Proformas", path: "/ventes/proforma" },
-      { title: "Nouveau BL", path: "/ventes/bl/create" },
-      { title: "Nouveau BV", path: "/ventes/bv/create" },
-      { title: "Factures & Ventes (Moteur)", path: "/ventes/commandes" },
+      { title: "Bons de Livraison", path: "/ventes/bl" },
+      { title: "Bons de Vente", path: "/ventes/bv" },
+      { title: "Ventes (Dashboard)", path: "/ventes/commandes" },
     ],
   },
   {
