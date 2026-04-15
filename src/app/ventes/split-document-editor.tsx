@@ -381,11 +381,11 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
         </div>
 
         {/* RIGHT PANEL: FACTURIER */}
-        <div className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-900/50 relative">
-          <div className="flex-1 overflow-auto p-4">
-            <div className="bg-white dark:bg-slate-950 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 w-full overflow-hidden min-w-[800px]">
-              <Table>
-                <TableHeader className="bg-slate-100 dark:bg-slate-900">
+        <div className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-900/50 relative min-w-0">
+          <div className="flex-1 overflow-y-auto p-4 flex flex-col min-w-0">
+            <div className="bg-white dark:bg-slate-950 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 w-full overflow-x-auto min-w-0">
+              <Table className="min-w-[1200px] w-full table-fixed">
+                <TableHeader className="bg-slate-100 dark:bg-slate-900 sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="w-[30%]">Désignation</TableHead>
                     <TableHead className="w-[10%] whitespace-nowrap text-center">Colisage</TableHead>
@@ -446,13 +446,13 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
                     )
                   })}
                 </TableBody>
-              </Table>
+          </Table>
             </div>
           </div>
 
           {/* FOOTER TOTALS EXACTEMENT COMME DEMANDE */}
-          <div className="flex-none bg-slate-900 text-white p-4 lg:p-6 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.5)] z-20 layout-footer">
-            <div className="max-w-6xl w-full mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="bg-slate-900 border-t border-slate-700 py-6 px-4 overflow-x-auto custom-scrollbar">
+            <div className="min-w-[600px] max-w-6xl w-full mx-auto flex justify-between items-center gap-6">
 
               <div className="flex items-center gap-4">
                 <div className="flex items-center space-x-2 bg-slate-800 p-2 px-3 rounded-md border border-slate-700">
