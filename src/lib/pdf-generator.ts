@@ -91,7 +91,7 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
     // BLOC CLIENT
     doc.setLineWidth(0.2);
     doc.setDrawColor(0);
-    doc.roundedRect(15, y, 90, 35, 3, 3, 'S'); 
+    doc.roundedRect(15, y, 90, 35, 3, 3, 'S');
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text("CLIENT:", 20, y + 7);
@@ -115,13 +115,13 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
       if (!isNaN(d.getTime())) dateStr = d.toLocaleDateString("fr-FR");
     }
     doc.text("Fait à Oran, le " + dateStr, docX, y + 7);
-    
+
     // Titre Document (Plus grand selon demande)
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     const tit = data.type === "PROFORMA" ? "Facture Proforma" : (data.type === "BL" ? "Bon de Livraison" : "Document");
     doc.text(tit, docX, y + 16);
-    
+
     // Numéro et Mode (Plus petits et non gras)
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
@@ -147,7 +147,6 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
     const tableRows = currentLines.map((line: any, idx: number) => {
       const designation = line.product?.designation || line.designation || "Produit sans nom";
       const code = line.product?.reference || "CODE";
-
       return [
         startIdx + idx + 1,
         code,
@@ -155,7 +154,7 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
         line.quantity,
         formatNumber(line.unitPrice),
         line.taxRate + "%",
-        formatNumber((line.quantity * line.unitPrice) * (1 - (line.discount || 0)/100) * (1 + line.taxRate/100))
+        formatNumber((line.quantity * line.unitPrice) * (1 - (line.discount || 0) / 100) * (1 + line.taxRate / 100))
       ];
     });
 
@@ -170,7 +169,7 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
         1: { cellWidth: 20 },
-        2: { cellWidth: 'auto' }, 
+        2: { cellWidth: 'auto' },
         3: { cellWidth: 15, halign: 'center' },
         4: { cellWidth: 25, halign: 'right' },
         5: { cellWidth: 12, halign: 'center' },
@@ -182,11 +181,11 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
     const finalY = (doc as any).lastAutoTable.finalY;
     doc.setLineWidth(0.1);
     doc.roundedRect(14, tableStartY - 1, pageWidth - 28, finalY - tableStartY + 2, 1, 1, 'S');
-    
+
     // Pagination au pied de chaque page
     doc.setFontSize(8);
     doc.setTextColor(150);
-    doc.text(`Page ${p+1}/${totalPages}`, pageWidth / 2, pageHeight - 10, { align: "center" });
+    doc.text(`Page ${p + 1}/${totalPages}`, pageWidth / 2, pageHeight - 10, { align: "center" });
     doc.setTextColor(0);
   }
 
