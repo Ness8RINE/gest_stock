@@ -33,6 +33,7 @@ enum DocumentType {
   PURCHASE_RETURN
   EXCHANGE
   DELIVERY
+  TRANSFER
 }
 
 enum DocumentStatus {
