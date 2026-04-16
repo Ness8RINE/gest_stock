@@ -142,7 +142,7 @@ export default function InventoryList({ initialProducts, warehouses, categories 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-slate-400" />
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select value={selectedCategory} onValueChange={(v) => setSelectedCategory(v || "all")}>
               <SelectTrigger className="w-[180px] bg-slate-50 border-none">
                 <SelectValue placeholder="Catégorie" />
               </SelectTrigger>
@@ -155,7 +155,7 @@ export default function InventoryList({ initialProducts, warehouses, categories 
 
           <div className="flex items-center gap-2">
             <WarehouseIcon className="h-4 w-4 text-slate-400" />
-            <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
+            <Select value={selectedWarehouse} onValueChange={(v) => setSelectedWarehouse(v || "all")}>
               <SelectTrigger className="w-[180px] bg-slate-50 border-none">
                 <SelectValue placeholder="Dépôt" />
               </SelectTrigger>

@@ -61,7 +61,7 @@ export default function ReceiptListPage() {
     setIsLoading(true);
     const res = await getReceiptDocuments();
     if (res.success) {
-      setDocs(res.data);
+      setDocs((res.data || []) as any[]);
     }
     setIsLoading(false);
   };

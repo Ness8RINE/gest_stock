@@ -76,7 +76,6 @@ export async function createProduct(data: any) {
     }
 
     const product = await prisma.product.create({
-      where: undefined as any, // fallback pour le mapping
       data: {
         reference: data.reference,
         designation: data.designation,
