@@ -3,6 +3,39 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DocumentStatus } from "@prisma/client";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
+
+/**
+ * Upload un justificatif de paiement
+ */
+export async function uploadPaymentAttachment(formData: FormData) {
+  try {
+    const file = formData.get("file") as File;
+    if (!file) return { success: false, error: "Aucun fichier fourni" };
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Création du chemin
+    const filename = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+    const uploadDir = path.join(process.cwd(), "public", "uploads", "payments");
+    
+    // S'assurer que le dossier existe
+    await mkdir(uploadDir, { recursive: true });
+    
+    const filePath = path.join(uploadDir, filename);
+    await writeFile(filePath, buffer);
+
+    return { 
+      success: true, 
+      url: `/uploads/payments/${filename}` 
+    };
+  } catch (error) {
+    console.error("Upload Error:", error);
+    return { success: false, error: "Erreur lors de l'enregistrement du fichier" };
+  }
+}
 
 /**
  * Récupère tous les partenaires (Clients & Fournisseurs)

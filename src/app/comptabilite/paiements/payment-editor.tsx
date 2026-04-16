@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { 
   createPayment, 
   getUnpaidInvoices,
-  getPartnerFinancialSummary
+  getPartnerFinancialSummary,
+  uploadPaymentAttachment
 } from "@/app/actions/finance.actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,8 @@ export default function PaymentEditor({ partners, selectedPayment, onSuccess, on
   const [isSearchingInvoices, setIsSearchingInvoices] = useState(false);
   const [summary, setSummary] = useState<any>(null);
   const [isSearchingSummary, setIsSearchingSummary] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const { register, control, watch, handleSubmit, setValue, reset } = useForm<FormValues>({
     defaultValues: {
@@ -149,7 +152,7 @@ export default function PaymentEditor({ partners, selectedPayment, onSuccess, on
       replace([]);
       setSummary(null);
     }
-  }, [watchedPartnerId, watchedPartnerType, replace]);
+  }, [watchedPartnerId, watchedPartnerType, replace, isViewMode, selectedPayment]);
 
   // Logique d'auto-lettrage (distribution automatique du montant saisi)
   const distributeAmount = () => {
@@ -186,11 +189,25 @@ export default function PaymentEditor({ partners, selectedPayment, onSuccess, on
       return toast.error("Le montant ventilé dépasse le montant total du règlement.");
     }
 
+    let attachmentUrl = "";
+    if (selectedFile) {
+       const formData = new FormData();
+       formData.append("file", selectedFile);
+       const uploadRes = await uploadPaymentAttachment(formData);
+       if (uploadRes.success) {
+          attachmentUrl = uploadRes.url || "";
+       } else {
+          toast.error("Erreur lors de l'envoi du justificatif");
+          return;
+       }
+    }
+
     const t = toast.loading("Enregistrement du paiement...");
     const res = await createPayment({
       amount: data.amount,
       paymentMethod: data.paymentMethod,
       referenceNumber: data.referenceNumber,
+      attachmentUrl: attachmentUrl || undefined,
       date: new Date(data.date),
       partnerId: data.partnerId,
       partnerType: data.partnerType,
@@ -337,6 +354,31 @@ export default function PaymentEditor({ partners, selectedPayment, onSuccess, on
                 className="h-11 bg-white border-slate-200 rounded-xl text-sm font-mono disabled:bg-slate-50" 
               />
            </div>
+
+           {!isViewMode && (
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase px-1">Justificatif (PDF/Image)</label>
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className={cn(
+                    "h-11 border-2 border-dashed rounded-xl flex items-center px-4 cursor-pointer transition-all",
+                    selectedFile ? "bg-indigo-50 border-indigo-200" : "bg-white border-slate-200 hover:border-indigo-400"
+                  )}
+                >
+                   <Paperclip size={14} className={cn("mr-2", selectedFile ? "text-indigo-600" : "text-slate-400")} />
+                   <span className={cn("text-[11px] truncate font-bold", selectedFile ? "text-indigo-600" : "text-slate-400")}>
+                      {selectedFile ? selectedFile.name : "Joindre une pièce..."}
+                   </span>
+                   <input 
+                     type="file" 
+                     ref={fileInputRef} 
+                     onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                     className="hidden" 
+                     accept="application/pdf,image/*"
+                   />
+                </div>
+              </div>
+           )}
         </div>
 
         {/* ÉTAPE 2: LETTRAGE */}
