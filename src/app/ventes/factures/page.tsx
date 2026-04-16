@@ -61,7 +61,7 @@ export default function FactureListPage() {
     setIsLoading(true);
     const res = await getSaleDocuments("INVOICE");
     if (res.success) {
-      setDocs(res.data);
+      setDocs(res.data || []);
     }
     setIsLoading(false);
   };

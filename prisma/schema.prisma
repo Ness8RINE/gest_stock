@@ -32,6 +32,7 @@ enum DocumentType {
   PURCHASE_INVOICE
   PURCHASE_RETURN
   EXCHANGE
+  DELIVERY
 }
 
 enum DocumentStatus {
@@ -258,6 +259,7 @@ model DocumentLine {
   unitPrice    Float     // Sold/Bought price per unit
   discount     Float     @default(0)
   taxRate      Float     @default(0)
+  lineType     String?   // "IN" or "OUT" for exchanges
 }
 
 model Payment {

@@ -106,6 +106,8 @@ export default function ReceiptListPage() {
     doc.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalCumule = filteredDocs.reduce((acc, doc) => acc + (doc.netTotal || 0), 0);
+
   const SortIcon = ({ column }: { column: SortConfig["key"] }) => {
     if (sortConfig.key !== column) return <ArrowUpDown className="ml-2 h-3 w-3 opacity-50" />;
     return sortConfig.direction === "asc" ? <ArrowUp className="ml-2 h-3 w-3" /> : <ArrowDown className="ml-2 h-3 w-3" />;
@@ -137,8 +139,8 @@ export default function ReceiptListPage() {
         </div>
       </div>
 
-      <div className="px-6 pb-4">
-        <div className="relative max-w-sm">
+      <div className="px-6 pb-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+        <div className="relative max-w-sm w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Rechercher (Référence, Fournisseur)..."
@@ -146,6 +148,16 @@ export default function ReceiptListPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:ring-blue-500"
           />
+        </div>
+
+        <div className="bg-white dark:bg-slate-950 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+          <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+            <RefreshCw className="h-4 w-4 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Montant Total Cumulé</p>
+            <p className="text-lg font-black text-slate-900 dark:text-white">{totalCumule.toLocaleString()} DA</p>
+          </div>
         </div>
       </div>
 

@@ -60,7 +60,7 @@ export default function BVListPage() {
     setIsLoading(true);
     const res = await getSaleDocuments("BV");
     if (res.success) {
-      setDocs(res.data);
+      setDocs(res.data || []);
     }
     setIsLoading(false);
   };

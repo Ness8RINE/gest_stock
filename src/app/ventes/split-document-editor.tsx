@@ -23,9 +23,10 @@ import { generateProformaPDF } from "@/lib/pdf-generator";
 
 type Inventory = {
   batchId: string;
+  warehouseId: string;
   quantity: number;
-  warehouse: { name: string };
-  batch: { batchNumber: string, expirationDate: Date | null };
+  warehouse: { id: string, name: string };
+  batch: { id: string, batchNumber: string, expirationDate: Date | null };
 };
 
 type Product = {
@@ -46,7 +47,7 @@ type Customer = {
 };
 
 type SplitEditorProps = {
-  documentType: "PROFORMA" | "BL" | "BV";
+  documentType: "PROFORMA" | "BL" | "BV" | "INVOICE" | "DELIVERY";
   clients: Customer[];
   products: Product[];
   initialData?: any;
@@ -61,6 +62,8 @@ type FormValues = {
   lines: {
     productId: string;
     designation: string;
+    reference?: string;
+    warehouseId?: string;
     batchId?: string;
     colisage: number;
     cartons: number;
@@ -95,9 +98,12 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
       const formattedLines = initialData.lines.map((l: any) => ({
         productId: l.productId,
         designation: l.product?.designation || l.designation,
+        reference: l.product?.reference,
         colisage: l.product?.piecesPerCarton || 1,
         cartons: l.quantity / (l.product?.piecesPerCarton || 1),
         quantity: l.quantity,
+        warehouseId: l.warehouseId,
+        batchId: l.batchId,
         unitPrice: l.unitPrice,
         discount: l.discount || 0,
         taxRate: l.taxRate ?? 0
@@ -175,6 +181,7 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
     append({
       productId: prd.id,
       designation: prd.designation + (batch ? ` [Lot: ${batch.batch.batchNumber}]` : ""),
+      reference: prd.reference,
       warehouseId: batch?.warehouseId,
       batchId: batch?.batchId,
       colisage: colisage,
@@ -240,11 +247,12 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
     }
   };
 
-  const filteredProducts = products.filter(p => p.designation.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredProducts = (products || []).filter(p => p.designation.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const getDocTitle = () => {
     if (documentType === "PROFORMA") return "Facture Proforma";
     if (documentType === "BL") return "Bon de Livraison";
+    if (documentType === "DELIVERY") return "Bon d'Enlèvement";
     return "Bon de Vente";
   };
 
@@ -435,10 +443,11 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
                                 className="w-full h-8 text-[10px] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-1"
                               >
                                 <option value="">Choisir dépôt</option>
-                                {/* Note: Ici on devrait mapper les dépôts réels du produit */}
-                                {products.find(p => p.id === line.productId)?.inventories.map(inv => (
-                                  <option key={inv.warehouse.id} value={inv.warehouse.id}>
-                                    {inv.warehouse.name}
+                                {[...new Map(
+                                  products.find(p => p.id === line.productId)?.inventories.map(inv => [inv.warehouse.id, inv.warehouse])
+                                ).values()].map(wh => (
+                                  <option key={wh.id} value={wh.id}>
+                                    {wh.name}
                                   </option>
                                 ))}
                               </select>

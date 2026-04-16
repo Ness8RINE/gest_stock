@@ -14,7 +14,7 @@ export type LineItemInput = {
 };
 
 export type CreateDocumentInput = {
-  type: "PROFORMA" | "BL" | "BV" | "INVOICE";
+  type: "PROFORMA" | "BL" | "BV" | "INVOICE" | "DELIVERY";
   date: Date;
   reference?: string;
   customerId: string;
@@ -28,7 +28,7 @@ export type CreateDocumentInput = {
   lines: LineItemInput[];
 };
 
-export async function getNextReference(type: "PROFORMA" | "BL" | "BV" | "INVOICE") {
+export async function getNextReference(type: "PROFORMA" | "BL" | "BV" | "INVOICE" | "DELIVERY") {
   try {
     const lastDoc = await prisma.document.findFirst({
       where: { type },
@@ -36,7 +36,11 @@ export async function getNextReference(type: "PROFORMA" | "BL" | "BV" | "INVOICE
       select: { reference: true }
     });
 
-    const prefix = type === "PROFORMA" ? "PROF-" : type === "BL" ? "BL-" : type === "BV" ? "BV-" : "FACT-";
+    const prefix = 
+      type === "PROFORMA" ? "PROF-" : 
+      type === "BL" ? "BL-" : 
+      type === "BV" ? "BV-" : 
+      type === "DELIVERY" ? "BE-" : "FACT-";
     
     if (!lastDoc || !lastDoc.reference || !lastDoc.reference.startsWith(prefix)) {
       return `${prefix}01`;
@@ -62,8 +66,8 @@ export async function deleteDocument(id: string) {
     if (!doc) return { success: false, error: "Document introuvable." };
 
     await prisma.$transaction(async (tx) => {
-      // 1. Restaurer le stock si c'est un BL ou BV
-      if (doc.type === "BL" || doc.type === "BV") {
+      // 1. Restaurer le stock si c'est un BL, BV ou Bon d'Enlèvement
+      if (doc.type === "BL" || doc.type === "BV" || doc.type === "DELIVERY") {
         await handleStockMovement(tx, doc.id, doc.lines as any, "IN");
       }
 
@@ -73,6 +77,7 @@ export async function deleteDocument(id: string) {
 
     revalidatePath("/ventes/bl");
     revalidatePath("/ventes/bv");
+    revalidatePath("/ventes/enlevement");
     revalidatePath("/ventes/proforma");
     revalidatePath("/ventes/factures");
     return { success: true };
@@ -159,7 +164,7 @@ export async function transformDocToDoc(sourceId: string, targetType: "BL" | "BV
     // Définir si on doit impacter le stock lors de cette transformation
     // On impacte le stock seulement si on passe d'une Proforma (sans stock) à un BL/BV/Facture
     // Si on passe d'un BL vers Facture, le stock est déjà déduit, donc on ne le fait PAS ici.
-    const shouldImpactStock = source.type === "PROFORMA" && (targetType === "BL" || targetType === "BV" || targetType === "INVOICE");
+    const shouldImpactStock = source.type === "PROFORMA" && (targetType === "BL" || targetType === "BV" || targetType === "INVOICE" || (targetType as any) === "DELIVERY");
 
     const nextRef = await getNextReference(targetType);
 
@@ -280,7 +285,8 @@ export async function createSaleDocument(data: CreateDocumentInput) {
       });
 
       // Impact Stock si BL, BV ou Facture directe
-      if (data.type === 'BL' || data.type === 'BV' || data.type === 'INVOICE') {
+      // Impact Stock si BL, BV, Facture directe ou Bon d'Enlèvement
+      if (data.type === 'BL' || data.type === 'BV' || data.type === 'INVOICE' || data.type === 'DELIVERY') {
         await handleStockMovement(tx, document.id, data.lines, "OUT");
       }
 
@@ -298,11 +304,11 @@ export async function createSaleDocument(data: CreateDocumentInput) {
   }
 }
 
-export async function getSaleDocuments(typeDoc?: "PROFORMA" | "BL" | "BV" | "INVOICE") {
+export async function getSaleDocuments(typeDoc?: "PROFORMA" | "BL" | "BV" | "INVOICE" | "DELIVERY") {
   try {
     const docs = await prisma.document.findMany({
       where: {
-        type: typeDoc ? typeDoc : { in: ["PROFORMA", "BL", "BV", "INVOICE"] }
+        type: typeDoc ? typeDoc : { in: ["PROFORMA", "BL", "BV", "INVOICE", "DELIVERY"] }
       },
       include: {
         customer: true,

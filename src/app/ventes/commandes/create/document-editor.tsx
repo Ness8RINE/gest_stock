@@ -39,10 +39,10 @@ type Product = {
 type Customer = {
   id: string;
   name: string;
-  rc?: string;
-  mf?: string;
-  nis?: string;
-  ai?: string;
+  rc?: string | null;
+  mf?: string | null;
+  nis?: string | null;
+  ai?: string | null;
 };
 
 type FormValues = {
@@ -129,6 +129,8 @@ export default function DocumentEditor({ clients, products }: { clients: Custome
       discountTotal: discountValue,
       taxTotal,
       netTotal,
+      date: new Date(),
+      stampTax: 0,
       lines: data.lines
     };
 

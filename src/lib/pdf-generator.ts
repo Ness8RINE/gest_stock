@@ -151,11 +151,20 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
   // Regroupement par produit (pour le PDF seulement) pour éviter les doublons si sortie multi-dépots
   const groupedProducts: any[] = [];
   rawLines.forEach((line: any) => {
-    const existing = groupedProducts.find(p => p.productId === line.productId && p.unitPrice === line.unitPrice);
+    // Dans un échange, on sépare les entrées des sorties dans le regroupement
+    const existing = groupedProducts.find(p => 
+      p.productId === line.productId && 
+      p.unitPrice === line.unitPrice &&
+      p.lineType === line.lineType
+    );
+    
+    // Pour un échange, les articles rendus (IN) sont traités avec une quantité négative pour le calcul
+    const effectiveQty = (data.type === 'EXCHANGE' && line.lineType === 'IN') ? -line.quantity : line.quantity;
+
     if (existing) {
-      existing.quantity += line.quantity;
+      existing.quantity += effectiveQty;
     } else {
-      groupedProducts.push({ ...line });
+      groupedProducts.push({ ...line, quantity: effectiveQty });
     }
   });
 
@@ -173,7 +182,10 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
     const currentLines = products.slice(startIdx, endIdx);
 
     const tableRows = currentLines.map((line: any, idx: number) => {
-      const designation = line.product?.designation || line.designation || "Produit sans nom";
+      let designation = line.product?.designation || line.designation || "Produit sans nom";
+      if (data.type === 'EXCHANGE' && line.lineType) {
+        designation = `[${line.lineType === 'IN' ? 'RENDU' : 'PRIS'}] ${designation}`;
+      }
       const code = line.product?.reference || "CODE";
       return [
         startIdx + idx + 1,

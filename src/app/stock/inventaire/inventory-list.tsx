@@ -20,6 +20,7 @@ type InventoryLine = {
   batch: {
     batchNumber: string;
     expirationDate: string | null;
+    unitCost: number;
   };
   warehouse: {
     name: string;
@@ -76,18 +77,27 @@ export default function InventoryList({ initialProducts, warehouses, categories 
   // Statistiques
   const stats = useMemo(() => {
     let totalQty = 0;
+    let totalValue = 0;
     let criticalItems = 0;
     filteredData.forEach(p => {
-      const sum = p.inventories.reduce((acc, inv) => acc + inv.quantity, 0);
+      const productInventories = selectedWarehouse === "all" 
+        ? p.inventories 
+        : p.inventories.filter(inv => inv.warehouse.name === selectedWarehouse);
+
+      const sum = productInventories.reduce((acc, inv) => acc + inv.quantity, 0);
+      const value = productInventories.reduce((acc, inv) => acc + (inv.quantity * inv.batch.unitCost), 0);
+      
       totalQty += sum;
+      totalValue += value;
       if (sum > 0 && sum < 10) criticalItems++;
     });
     return {
       totalRefs: filteredData.length,
       totalUnits: totalQty,
+      totalValue,
       criticalItems
     };
-  }, [filteredData]);
+  }, [filteredData, selectedWarehouse]);
 
   return (
     <div className="space-y-6">
@@ -123,6 +133,17 @@ export default function InventoryList({ initialProducts, warehouses, categories 
           <CardContent>
             <div className="text-2xl font-bold text-amber-600">{stats.criticalItems}</div>
             <p className="text-xs text-slate-400 mt-1">Produits avec moins de 10 unités</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-md bg-emerald-600 dark:bg-emerald-900/50 text-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium uppercase opacity-80">Valeur Totale Stock</CardTitle>
+            <History className="h-4 w-4 text-emerald-200" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalValue.toLocaleString()} DA</div>
+            <p className="text-xs text-emerald-100 mt-1 opacity-80">Valorisation (Quantité × PMP)</p>
           </CardContent>
         </Card>
       </div>
@@ -178,6 +199,7 @@ export default function InventoryList({ initialProducts, warehouses, categories 
               <TableHead>Catégorie</TableHead>
               <TableHead className="text-center">Unité</TableHead>
               <TableHead className="text-right font-bold text-slate-700 dark:text-slate-300">Quantité Totale</TableHead>
+              <TableHead className="text-right font-bold text-slate-700 dark:text-slate-300">Valeur Totale</TableHead>
               <TableHead className="text-center w-[120px]">Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -222,6 +244,9 @@ export default function InventoryList({ initialProducts, warehouses, categories 
                          {totalQty.toLocaleString()}
                        </span>
                     </TableCell>
+                    <TableCell className="text-right font-bold text-slate-900 dark:text-slate-100">
+                       {relevantInventories.reduce((acc, inv) => acc + (inv.quantity * inv.batch.unitCost), 0).toLocaleString()} DA
+                    </TableCell>
                     <TableCell className="text-center">
                        {totalQty === 0 ? (
                          <Badge variant="destructive" className="bg-red-100 text-red-700 hover:bg-red-100 border-none">Rupture</Badge>
@@ -236,19 +261,29 @@ export default function InventoryList({ initialProducts, warehouses, categories 
                   {/* DETAILS (LOTS) */}
                   {isExpanded && (
                     <TableRow className="bg-slate-50/50 dark:bg-slate-900/30">
-                      <TableCell colSpan={6} className="p-0">
+                      <TableCell colSpan={7} className="p-0">
                          <div className="p-4 pl-14 flex flex-col gap-2">
                            <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                              <History className="h-3 w-3" /> Répartition par Lots et Dépôts
                            </div>
                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                              {relevantInventories.map((inv, idx) => (
-                               <div key={idx} className="bg-white dark:bg-slate-950 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-1">
+                               <div key={idx} className="bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-3">
                                  <div className="flex justify-between items-start">
                                     <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold uppercase">{inv.warehouse.name}</span>
-                                    <span className="text-sm font-black text-slate-700 dark:text-slate-300">{inv.quantity} <span className="text-[10px] font-normal">{p.unit}</span></span>
+                                    <span className="text-sm font-black text-slate-700 dark:text-slate-300">{inv.quantity.toLocaleString()} <span className="text-[10px] font-normal">{p.unit}</span></span>
                                  </div>
-                                 <div className="flex justify-between items-center mt-2">
+                                 <div className="grid grid-cols-2 gap-2 py-2 border-y border-slate-50 dark:border-slate-900">
+                                    <div className="flex flex-col">
+                                       <span className="text-[10px] text-slate-400 uppercase tracking-tighter">PMP (Achat)</span>
+                                       <span className="text-xs font-bold text-blue-600">{inv.batch.unitCost.toLocaleString()} DA</span>
+                                    </div>
+                                    <div className="flex flex-col text-right">
+                                       <span className="text-[10px] text-slate-400 uppercase tracking-tighter">Sous-total</span>
+                                       <span className="text-xs font-bold text-emerald-600">{(inv.quantity * inv.batch.unitCost).toLocaleString()} DA</span>
+                                    </div>
+                                 </div>
+                                 <div className="flex justify-between items-center">
                                     <div className="flex flex-col">
                                        <span className="text-[10px] text-slate-400">Lot N°</span>
                                        <span className="text-xs font-mono font-bold">{inv.batch.batchNumber}</span>
