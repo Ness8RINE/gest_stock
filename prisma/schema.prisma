@@ -267,6 +267,8 @@ model Payment {
   id             String         @id @default(uuid())
   amount         Float
   paymentMethod  String         // e.g. "Cash", "Transfer", "Check"
+  referenceNumber String?        // e.g. Check number, Transfer ID
+  attachmentUrl   String?        // Link to the justificatif (PDF/Image)
   date           DateTime       @default(now())
   
   customerId     String?
