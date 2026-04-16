@@ -88,22 +88,28 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
   };
 
   const drawInfoBlocks = (doc: any, y: number) => {
-    // BLOC CLIENT
+    const purchaseTypes = ['RECEIPT', 'PURCHASE_ORDER', 'PURCHASE_RETURN'];
+    const isPurchase = purchaseTypes.includes(data.type);
+    const partnerLabel = isPurchase ? "FOURNISSEUR:" : "CLIENT:";
+    
     doc.setLineWidth(0.2);
     doc.setDrawColor(0);
     doc.roundedRect(15, y, 90, 35, 3, 3, 'S');
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text("CLIENT:", 20, y + 7);
+    doc.text(partnerLabel, 20, y + 7);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    const cName = data.customer?.name || data.customerName || "Client de passage";
-    doc.text(cName, 20, y + 13);
+    
+    // Mapping Données Client ou Fournisseur
+    const partner = isPurchase ? data.supplier : (data.customer || { name: data.customerName });
+    const pName = partner?.name || "Non spécifié";
+    doc.text(pName, 20, y + 13);
     doc.setFontSize(8);
-    doc.text(data.customer?.address || data.customerAddress || "Adresse non spécifiée", 20, y + 18);
-    doc.text("Tél: " + (data.customer?.phone || data.customerPhone || "/"), 20, y + 23);
-    doc.text(`RC: ${data.customer?.rc || "/"} | NIS: ${data.customer?.nis || "/"}`, 20, y + 27);
-    doc.text(`MF: ${data.customer?.mf || "/"} | AI: ${data.customer?.ai || "/"}`, 20, y + 31);
+    doc.text(partner?.address || "Adresse non spécifiée", 20, y + 18);
+    doc.text("Tél: " + (partner?.phone || "/"), 20, y + 23);
+    doc.text(`RC: ${partner?.rc || "/"} | NIS: ${partner?.nis || "/"}`, 20, y + 27);
+    doc.text(`MF: ${partner?.mf || "/"} | AI: ${partner?.ai || "/"}`, 20, y + 31);
 
     // BLOC DOCUMENT
     const docX = 130;
@@ -124,7 +130,9 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
       "BL": "Bon de Livraison",
       "BV": "Bon de Vente",
       "INVOICE": "Facture",
-      "RECEIPT": "Bon de Réception"
+      "RECEIPT": "Bon de Réception",
+      "EXCHANGE": "Bon d'Échange",
+      "DELIVERY": "Bon d'Enlèvement"
     };
     const tit = titles[data.type] || "Document";
     doc.text(tit, docX, y + 16);
@@ -217,10 +225,23 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
   const totalsY = pageHeight - totalsH - 20; // Toujours en bas
 
   // Phrase "Arrêter la présente..."
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "bolditalic");
-  const netTotalY = totalsY + totalsH - 8;
-  doc.text("Arrêter la présente facture proforma à la somme de :", 15, netTotalY - 10);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bolditalic");
+    const netTotalY = totalsY + totalsH - 8;
+    
+    // Libellé dynamique pour la phrase d'arrêt
+    const phraseMapping: Record<string, string> = {
+      "PROFORMA": "la présente facture proforma",
+      "INVOICE": "la présente facture",
+      "BL": "le présent bon de livraison",
+      "BV": "le présent bon de vente",
+      "RECEIPT": "le présent bon de réception",
+      "EXCHANGE": "le présent bon d'échange",
+      "DELIVERY": "le présent bon d'enlèvement"
+    };
+    const currentDocPhrase = phraseMapping[data.type] || "le présent document";
+
+    doc.text(`Arrêter ${currentDocPhrase} à la somme de :`, 15, netTotalY - 10);
   doc.setFont("helvetica", "bold");
   const words = numberToFrenchWords(data.netTotal);
   const splitWords = doc.splitTextToSize(words, totalsX - 25);
@@ -257,7 +278,8 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
   doc.text(formatNumber(data.netTotal) + " DA", rowX_value, currentY, { align: "right" });
 
   if (action === 'save') {
-    doc.save(`Proforma_${data.reference || "Brouillon"}.pdf`);
+    const fileName = `${data.type}_${data.reference || "Brouillon"}.pdf`;
+    doc.save(fileName);
   } else {
     window.open(doc.output('bloburl'), '_blank');
   }

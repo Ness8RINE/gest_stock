@@ -141,6 +141,11 @@ export async function getReceiptDocuments() {
       where: { type: "RECEIPT" },
       include: {
         supplier: true,
+        lines: {
+          include: {
+            product: true
+          }
+        },
         _count: { select: { lines: true } }
       },
       orderBy: { date: 'desc' }
