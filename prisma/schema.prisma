@@ -299,8 +299,11 @@ model ShippingCost {
 
 model Expense {
   id             String    @id @default(uuid())
-  category       String    // e.g. "Loyer", "Electricité"
+  category       String    // e.g. "Loyer", "Electricité", "Carburant"
   amount         Float
+  paymentMethod  String    @default("ESPECE")
+  referenceNumber String?
+  attachmentUrl   String?
   date           DateTime  @default(now())
   description    String?
 }

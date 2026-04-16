@@ -62,8 +62,9 @@ export const NAVIGATION = [
     submenus: [
       { title: "Grand Livre", path: "/comptabilite/grand-livre" },
       { title: "Paiements & Lettrage", path: "/comptabilite/paiements" },
-      { title: "TVA", path: "/comptabilite/tva" },
+      { title: "Dépenses", path: "/comptabilite/depenses" },
       { title: "Trésorerie", path: "/comptabilite/tresorerie" },
+      { title: "TVA", path: "/comptabilite/tva" },
     ],
   },
   {

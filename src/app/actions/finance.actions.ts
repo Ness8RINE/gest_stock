@@ -297,3 +297,228 @@ export async function deletePayment(paymentId: string) {
     return { success: false, error: "Erreur lors de la suppression du paiement" };
   }
 }
+
+/**
+ * Récupère les entrées du journal (Grand Livre) pour une période
+ */
+export async function getJournalEntries(filters: {
+  startDate?: string;
+  endDate?: string;
+  partnerId?: string;
+  method?: string;
+}) {
+  try {
+    const paymentWhere: any = {};
+    const expenseWhere: any = {};
+
+    if (filters.startDate || filters.endDate) {
+      const dateFilter: any = {};
+      if (filters.startDate) dateFilter.gte = new Date(filters.startDate);
+      if (filters.endDate) dateFilter.lte = new Date(filters.endDate);
+      paymentWhere.date = dateFilter;
+      expenseWhere.date = dateFilter;
+    }
+
+    if (filters.method && filters.method !== "ALL") {
+      paymentWhere.paymentMethod = filters.method;
+      expenseWhere.paymentMethod = filters.method;
+    }
+
+    if (filters.partnerId) {
+      paymentWhere.OR = [
+        { customerId: filters.partnerId },
+        { supplierId: filters.partnerId }
+      ];
+      // Les dépenses n'ont pas de lien partenaire, donc on n'en retourne aucune si un partenaire est filtré
+      expenseWhere.id = { in: [] }; 
+    }
+
+    const [payments, expenses] = await Promise.all([
+      prisma.payment.findMany({
+        where: paymentWhere,
+        include: { customer: true, supplier: true },
+        orderBy: { date: "asc" }
+      }),
+      prisma.expense.findMany({
+        where: expenseWhere,
+        orderBy: { date: "asc" }
+      })
+    ]);
+
+    // Fusionner et calculer les totaux
+    let totalIn = 0;
+    let totalOut = 0;
+    
+    const paymentEntries = payments.map(p => {
+      const isIn = !!p.customerId;
+      if (isIn) totalIn += p.amount;
+      else totalOut += p.amount;
+      
+      return {
+        ...p,
+        category: isIn ? "Paiement Client" : "Paiement Fournisseur",
+        type: isIn ? "IN" : "OUT",
+        partnerName: p.customer?.name || p.supplier?.name || "N/A"
+      };
+    });
+
+    const expenseEntries = expenses.map(e => {
+      totalOut += e.amount;
+      return {
+        ...e,
+        type: "OUT",
+        partnerName: `DEP: ${e.category}`,
+        description: e.description || e.category
+      };
+    });
+
+    const entries = [...paymentEntries, ...expenseEntries].sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    return { 
+      success: true, 
+      data: {
+        entries,
+        totalIn,
+        totalOut,
+        netBalance: totalIn - totalOut
+      } 
+    };
+  } catch (error) {
+    console.error("Journal Error:", error);
+    return { success: false, error: "Erreur lors de la lecture du journal" };
+  }
+}
+
+/**
+ * Récupère l'état de la trésorerie par mode de paiement
+ */
+export async function getCashflowStatus() {
+  try {
+    const [payments, expenses] = await Promise.all([
+      prisma.payment.findMany({
+        include: { customer: true, supplier: true },
+        orderBy: { date: "desc" }
+      }),
+      prisma.expense.findMany({
+        orderBy: { date: "desc" }
+      })
+    ]);
+
+    const modes = ["ESPECE", "CHEQUE", "VIREMENT", "VERSEMENT", "TRAITE"];
+    const status = modes.map(mode => {
+      const modePayments = payments.filter(p => p.paymentMethod === mode);
+      const modeExpenses = expenses.filter(e => e.paymentMethod === mode);
+      
+      const totalIn = modePayments.filter(p => !!p.customerId).reduce((sum, p) => sum + p.amount, 0);
+      const totalOutPayments = modePayments.filter(p => !!p.supplierId).reduce((sum, p) => sum + p.amount, 0);
+      const totalOutExpenses = modeExpenses.reduce((sum, e) => sum + e.amount, 0);
+      
+      return {
+        method: mode,
+        balance: totalIn - (totalOutPayments + totalOutExpenses),
+        totalIn,
+        totalOut: totalOutPayments + totalOutExpenses,
+        count: modePayments.length + modeExpenses.length
+      };
+    });
+
+    // Calcul globaux
+    const globalTotalIn = status.reduce((sum, s) => sum + s.totalIn, 0);
+    const globalTotalOut = status.reduce((sum, s) => sum + s.totalOut, 0);
+
+    return {
+      success: true,
+      data: {
+        status,
+        globalBalance: globalTotalIn - globalTotalOut,
+        recentActivity: payments.slice(0, 10).map(p => ({
+            ...p,
+            partnerName: p.customer?.name || p.supplier?.name || "N/A",
+            type: p.customerId ? "IN" : "OUT"
+        }))
+      }
+    };
+  } catch (error) {
+    console.error("Cashflow Error:", error);
+    return { success: false, error: "Erreur calcul trésorerie" };
+  }
+}
+
+/**
+ * Récupère la liste des dépenses
+ */
+export async function getExpenses() {
+  try {
+    const expenses = await prisma.expense.findMany({
+      orderBy: { date: "desc" }
+    });
+    return { success: true, data: expenses };
+  } catch (error) {
+    return { success: false, error: "Erreur lecture dépenses" };
+  }
+}
+
+/**
+ * Enregistre une nouvelle dépense
+ */
+export async function createExpense(data: {
+  id?: string;
+  category: string;
+  amount: number;
+  paymentMethod: string;
+  referenceNumber?: string;
+  attachmentUrl?: string;
+  date: Date;
+  description?: string;
+}) {
+  try {
+    const expenseData = {
+      category: data.category,
+      amount: data.amount,
+      paymentMethod: data.paymentMethod,
+      referenceNumber: data.referenceNumber,
+      attachmentUrl: data.attachmentUrl,
+      date: data.date,
+      description: data.description
+    };
+
+    let expense;
+    if (data.id) {
+      expense = await prisma.expense.update({
+        where: { id: data.id },
+        data: expenseData
+      });
+    } else {
+      expense = await prisma.expense.create({
+        data: expenseData
+      });
+    }
+
+    revalidatePath("/comptabilite/depenses");
+    revalidatePath("/comptabilite/grand-livre");
+    revalidatePath("/comptabilite/tresorerie");
+    
+    return { success: true, data: expense };
+  } catch (error) {
+    console.error("Save Expense Error:", error);
+    return { success: false, error: "Erreur lors de l'enregistrement de la dépense" };
+  }
+}
+
+/**
+ * Supprime une dépense
+ */
+export async function deleteExpense(id: string) {
+  try {
+    await prisma.expense.delete({ where: { id } });
+    revalidatePath("/comptabilite/depenses");
+    revalidatePath("/comptabilite/grand-livre");
+    revalidatePath("/comptabilite/tresorerie");
+    return { success: true };
+  } catch (error) {
+    console.error("Delete Expense Error:", error);
+    return { success: false, error: "Erreur suppression dépense" };
+  }
+}

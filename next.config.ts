@@ -4,9 +4,9 @@ const nextConfig: NextConfig = {
   /* config options here */
   allowedDevOrigins: ['192.168.1.13', '192.168.240.1'],
   experimental: {
-     serverActions: {
-       bodySizeLimit: '10mb',
-     },
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
   },
 };
 
