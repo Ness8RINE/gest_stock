@@ -8,10 +8,18 @@ export async function getProducts() {
     const products = await prisma.product.findMany({
       include: {
         category: true,
+        tva: true, // Inclure le taux de TVA
       },
       orderBy: { designation: 'asc' }
     });
-    return { success: true, data: products };
+    
+    // Mapper pour extraire tvaRate
+    const mapped = products.map(p => ({
+      ...p,
+      tvaRate: p.tva?.rate ?? 0
+    }));
+
+    return { success: true, data: mapped };
   } catch (error) {
     console.error("Erreur lors de la récupération des produits:", error);
     return { success: false, error: "Erreur récupération produits" };
@@ -23,6 +31,7 @@ export async function getProductsWithStock() {
     const products = await prisma.product.findMany({
       include: {
         category: true,
+        tva: true,
         inventories: {
           include: {
             batch: true,
@@ -32,16 +41,42 @@ export async function getProductsWithStock() {
       },
       orderBy: { designation: 'asc' }
     });
-    return { success: true, data: products };
+    const mapped = products.map(p => ({
+      ...p,
+      tvaRate: p.tva?.rate ?? 0
+    }));
+    return { success: true, data: mapped };
   } catch (error) {
     console.error("Erreur récupération stock:", error);
     return { success: false, error: "Erreur récupération" };
   }
 }
-
 export async function createProduct(data: any) {
   try {
+    // 1. Gérer la TVA (rechercher ou créer une entrée Tva pour ce taux)
+    let tvaId = null;
+    if (data.tvaRate !== undefined) {
+      // Pour éviter de multiplier les entrées identiques, on cherche par taux
+      // Note: On utilise un nom par défaut si nouveau
+      const tva = await prisma.tva.findFirst({
+        where: { rate: data.tvaRate }
+      });
+      
+      if (tva) {
+        tvaId = tva.id;
+      } else {
+        const newTva = await prisma.tva.create({
+          data: {
+            rate: data.tvaRate,
+            name: `TVA ${data.tvaRate}%`
+          }
+        });
+        tvaId = newTva.id;
+      }
+    }
+
     const product = await prisma.product.create({
+      where: undefined as any, // fallback pour le mapping
       data: {
         reference: data.reference,
         designation: data.designation,
@@ -51,12 +86,19 @@ export async function createProduct(data: any) {
         piecesPerCarton: data.piecesPerCarton,
         boxesPerCarton: data.boxesPerCarton,
         categoryId: data.categoryId,
-        // TODO: Handle TVA when the VAT logic is fully specified, for now it's null as tvaId is optional in db
-      }
+        tvaId: tvaId,
+      },
+      include: { tva: true }
     });
 
     revalidatePath("/stock/produits");
-    return { success: true, data: product };
+    return { 
+      success: true, 
+      data: { 
+        ...product, 
+        tvaRate: product.tva?.rate ?? 0 
+      } 
+    };
   } catch (error) {
     console.error("Erreur création produit:", error);
     return { success: false, error: "Création échouée. Veuillez vérifier la référence (elle doit être unique)." };
@@ -65,6 +107,21 @@ export async function createProduct(data: any) {
 
 export async function updateProduct(id: string, data: any) {
   try {
+    let tvaId = undefined; // undefined = ne pas toucher si non présent
+    if (data.tvaRate !== undefined) {
+      const tva = await prisma.tva.findFirst({
+        where: { rate: data.tvaRate }
+      });
+      if (tva) {
+        tvaId = tva.id;
+      } else {
+        const newTva = await prisma.tva.create({
+          data: { rate: data.tvaRate, name: `TVA ${data.tvaRate}%` }
+        });
+        tvaId = newTva.id;
+      }
+    }
+
     const product = await prisma.product.update({
       where: { id },
       data: {
@@ -76,11 +133,19 @@ export async function updateProduct(id: string, data: any) {
         piecesPerCarton: data.piecesPerCarton,
         boxesPerCarton: data.boxesPerCarton,
         categoryId: data.categoryId,
-      }
+        tvaId: tvaId,
+      },
+      include: { tva: true }
     });
 
     revalidatePath("/stock/produits");
-    return { success: true, data: product };
+    return { 
+      success: true, 
+      data: { 
+        ...product, 
+        tvaRate: product.tva?.rate ?? 0 
+      } 
+    };
   } catch (error) {
     console.error("Erreur modification produit:", error);
     return { success: false, error: "Modification échouée." };

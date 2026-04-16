@@ -1,88 +1,150 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { 
-  FileDown, 
-  FileText, 
-  Plus, 
-  Search, 
-  Filter,
-  Eye,
-  MoreVertical
-} from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import React, { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
+import {
+  getReceiptDocuments,
+  deleteReceipt
+} from "@/app/actions/receptions.actions";
 import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
+  TableRow
 } from "@/components/ui/table";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Plus,
+  Search,
+  Printer,
+  Trash2,
+  RefreshCw,
+  MoreVertical,
+  Eye,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Truck,
+  Edit
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
+import { generateProformaPDF } from "@/lib/pdf-generator";
+import { useRouter } from "next/navigation";
 
-import { getReceiptDocuments } from "@/app/actions/receptions.actions";
+type SortConfig = {
+  key: "reference" | "date" | "netTotal";
+  direction: "asc" | "desc" | null;
+};
 
-export default function ReceptionsPage() {
+export default function ReceiptListPage() {
   const router = useRouter();
+  const [docs, setDocs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [receptions, setReceptions] = useState<any[]>([]);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "date", direction: "desc" });
 
-  React.useEffect(() => {
-    getReceiptDocuments().then(res => {
-      if (res.success) setReceptions(res.data || []);
-    });
+  const loadDocs = async () => {
+    setIsLoading(true);
+    const res = await getReceiptDocuments();
+    if (res.success) {
+      setDocs(res.data);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    loadDocs();
   }, []);
 
-  const filteredReceptions = receptions.filter(r => 
-    r.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+  const handleDelete = async (id: string) => {
+    if (!confirm("Supprimer ce Bon de Réception ? Cela déduira les quantités du stock !")) return;
+    const res = await deleteReceipt(id);
+    if (res.success) {
+      toast.success("Document supprimé et stock mis à jour");
+      loadDocs();
+    } else {
+      toast.error(res.error);
+    }
+  };
+
+  const handleSort = (key: SortConfig["key"]) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc"
+    }));
+  };
+
+  const sortedDocs = [...docs].sort((a, b) => {
+    if (!sortConfig.direction) return 0;
+    let aVal = a[sortConfig.key];
+    let bVal = b[sortConfig.key];
+    if (sortConfig.key === "date") {
+      aVal = new Date(aVal).getTime();
+      bVal = new Date(bVal).getTime();
+    }
+    if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+    if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const filteredDocs = sortedDocs.filter(doc =>
+    doc.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    doc.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const SortIcon = ({ column }: { column: SortConfig["key"] }) => {
+    if (sortConfig.key !== column) return <ArrowUpDown className="ml-2 h-3 w-3 opacity-50" />;
+    return sortConfig.direction === "asc" ? <ArrowUp className="ml-2 h-3 w-3" /> : <ArrowDown className="ml-2 h-3 w-3" />;
+  };
+
   return (
-    <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="flex-none p-6 pb-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
-              <FileDown size={20} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Réceptions & Imports</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Gérez vos bons de réception et dossiers d'approche</p>
-            </div>
+    <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50">
+      <div className="p-6 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+            <Truck size={28} />
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="h-9 gap-2">
-              <Filter className="h-4 w-4" /> Filtres
-            </Button>
-            <Button size="sm" className="h-9 gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => router.push("/achats/receptions/create")}>
-              <Plus className="h-4 w-4" /> Nouveau Dossier
-            </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Bons de Réception</h1>
+            <p className="text-slate-500 text-sm">Gérez vos entrées en stock et achats fournisseurs</p>
           </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={loadDocs}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Actualiser
+          </Button>
+          <Link href="/achats/receptions/create">
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shadow-sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Nouvelle Réception
+            </Button>
+          </Link>
         </div>
       </div>
 
-      <div className="px-6 pb-4 flex-none">
+      <div className="px-6 pb-4">
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input 
-            placeholder="Rechercher par référence..." 
+          <Input
+            placeholder="Rechercher (Référence, Fournisseur)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+            className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -90,50 +152,75 @@ export default function ReceptionsPage() {
       <div className="flex-1 px-6 pb-6 overflow-hidden">
         <div className="h-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-auto">
           <Table>
-            <TableHeader className="bg-slate-50 dark:bg-slate-900/50">
+            <TableHeader className="bg-slate-50/80 dark:bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
               <TableRow>
-                <TableHead>Référence</TableHead>
-                <TableHead>Dossier / Facture</TableHead>
+                <TableHead className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("reference")}>
+                  <div className="flex items-center">Référence <SortIcon column="reference" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("date")}>
+                  <div className="flex items-center">Date <SortIcon column="date" /></div>
+                </TableHead>
                 <TableHead>Fournisseur</TableHead>
-                <TableHead>Date de réception</TableHead>
-                <TableHead className="text-right">Total Valorisé (DA)</TableHead>
                 <TableHead>Statut</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="text-right cursor-pointer hover:text-blue-600 transition-colors" onClick={() => handleSort("netTotal")}>
+                  <div className="flex items-center justify-end">Montant Total <SortIcon column="netTotal" /></div>
+                </TableHead>
+                <TableHead className="w-[80px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredReceptions.map(rec => (
-                <TableRow key={rec.id}>
-                  <TableCell className="font-medium text-slate-900 dark:text-slate-100">{rec.reference}</TableCell>
-                  <TableCell className="text-slate-500">{rec.orderRef || "Direct"}</TableCell>
-                  <TableCell>{rec.supplier?.name || "N/A"}</TableCell>
-                  <TableCell>{new Date(rec.date).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right font-mono font-medium text-slate-700 dark:text-slate-300">
-                    {rec.netTotal.toLocaleString()} DA
-                  </TableCell>
-                  <TableCell>
-                    {rec.status === "VALIDATED" 
-                      ? <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">Terminé</Badge>
-                      : <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">Brouillon</Badge>
-                    }
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger className="h-8 w-8 p-0 flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 outline-none transition-colors">
-                        <MoreVertical className="h-4 w-4 text-slate-500" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuGroup>
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem className="cursor-pointer text-indigo-600">
-                             <Eye className="mr-2 h-4 w-4" /> Voir le dossier
-                          </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-20 text-slate-400 font-medium">Récupération des données...</TableCell>
                 </TableRow>
-              ))}
+              ) : filteredDocs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-20 text-slate-500">Aucun bon de réception trouvé</TableCell>
+                </TableRow>
+              ) : (
+                filteredDocs.map((doc) => (
+                  <TableRow key={doc.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors group">
+                    <TableCell className="font-bold text-blue-600 dark:text-blue-400">{doc.reference}</TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-400">{new Date(doc.date).toLocaleDateString("fr-FR")}</TableCell>
+                    <TableCell className="font-medium">{doc.supplier?.name || "Fournisseur Inconnu"}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800 font-semibold">
+                        {doc.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-bold text-slate-900 dark:text-white">
+                      {doc.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} DA
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity")}>
+                          <MoreVertical className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          <DropdownMenuGroup>
+                            <DropdownMenuLabel>Options Réception</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => generateProformaPDF(doc, 'open')}>
+                              <Eye className="h-4 w-4 mr-2 text-slate-400" /> Consulter
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => generateProformaPDF(doc, 'save')}>
+                              <Printer className="h-4 w-4 mr-2 text-slate-400" /> Imprimer
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/achats/receptions/edit/${doc.id}`)}>
+                              <Edit className="h-4 w-4 mr-2 text-emerald-500" /> Modifier
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem className="text-red-500 focus:bg-red-50" onClick={() => handleDelete(doc.id)}>
+                              <Trash2 className="h-4 w-4 mr-2" /> Supprimer
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>

@@ -10,7 +10,7 @@ import { FileText, ArrowLeft, Trash2, Save, Search, PackageCheck, BriefcaseBusin
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { createReceiptDocument, ReceiptLineInput } from "@/app/actions/receptions.actions";
+import { createReceiptDocument, updateReceiptDocument, ReceiptLineInput } from "@/app/actions/receptions.actions";
 
 type Product = {
   id: string;
@@ -20,6 +20,7 @@ type Product = {
   unit: string;
   piecesPerCarton: number | null;
   boxesPerCarton: number | null;
+  tvaRate?: number;
 };
 
 type Supplier = {
@@ -36,9 +37,11 @@ type SplitReceiptEditorProps = {
   suppliers: Supplier[];
   products: Product[];
   warehouses: Warehouse[];
+  initialData?: any;
 };
 
 type FormValues = {
+  id?: string;
   reference: string;
   date: string;
   supplierId: string;
@@ -52,19 +55,32 @@ type FormValues = {
     cartons: number;
     quantity: number;
     unitCost: number;
+    taxRate: number;
   }[];
 };
 
-export default function SplitReceiptEditor({ suppliers, products, warehouses }: SplitReceiptEditorProps) {
+export default function SplitReceiptEditor({ suppliers, products, warehouses, initialData }: SplitReceiptEditorProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
 
   const { register, control, watch, handleSubmit, setValue } = useForm<FormValues>({
     defaultValues: {
-      reference: "",
-      date: new Date().toISOString().split("T")[0],
-      supplierId: "",
-      lines: []
+      id: initialData?.id,
+      reference: initialData?.reference || "",
+      date: initialData?.date ? new Date(initialData.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      supplierId: initialData?.supplierId || "",
+      lines: initialData?.lines?.map((l: any) => ({
+        productId: l.productId,
+        designation: l.product?.designation || "",
+        warehouseId: l.warehouseId,
+        batchNumber: l.batch?.batchNumber || "",
+        expirationDate: l.batch?.expirationDate ? new Date(l.batch.expirationDate).toISOString().split("T")[0] : "",
+        colisage: l.product?.piecesPerCarton || 1,
+        cartons: l.quantity / (l.product?.piecesPerCarton || 1),
+        quantity: l.quantity,
+        unitCost: l.unitPrice,
+        taxRate: l.taxRate || 0
+      })) || []
     }
   });
 
@@ -92,6 +108,7 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses }: 
       cartons: 1,
       quantity: colisage * 1,
       unitCost: prd.purchasePrice || 0,
+      taxRate: prd.tvaRate ?? 0,
     });
   };
 
@@ -117,8 +134,9 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses }: 
         if (line.quantity <= 0) return toast.error(`Ligne ${i+1}: Quantité invalide.`);
     }
 
-    const t = toast.loading("Création du Bon, des Lots et du Stock...");
-    const res = await createReceiptDocument({
+    const t = toast.loading(data.id ? "Mise à jour du Bon..." : "Création du Bon, des Lots et du Stock...");
+    
+    const payload = {
       reference: data.reference,
       date: new Date(data.date),
       supplierId: data.supplierId,
@@ -129,12 +147,17 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses }: 
         batchNumber: l.batchNumber,
         expirationDate: l.expirationDate || undefined,
         quantity: l.quantity,
-        unitCost: l.unitCost
+        unitCost: l.unitCost,
+        taxRate: l.taxRate
       }))
-    });
+    };
+
+    const res = data.id 
+      ? await updateReceiptDocument(data.id, payload)
+      : await createReceiptDocument(payload);
 
     if (res.success) {
-      toast.success("Bon de réception validé avec succès !", { id: t });
+      toast.success(data.id ? "Bon de réception mis à jour !" : "Bon de réception validé !", { id: t });
       router.push(`/achats/receptions`);
     } else {
       toast.error(res.error, { id: t });

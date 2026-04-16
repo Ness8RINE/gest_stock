@@ -100,7 +100,7 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
         quantity: l.quantity,
         unitPrice: l.unitPrice,
         discount: l.discount || 0,
-        taxRate: l.taxRate || 19
+        taxRate: l.taxRate ?? 0
       }));
 
       setValue("lines", formattedLines);
@@ -182,7 +182,7 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
       quantity: colisage * 1,
       unitPrice: prd.salePrice || 0,
       discount: 0,
-      taxRate: prd.tvaRate || 19,
+      taxRate: prd.tvaRate ?? 0,
     });
   };
 

@@ -83,7 +83,7 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
       unit: initialData?.unit ?? "Pièce",
       purchasePrice: initialData?.purchasePrice ?? 0,
       salePrice: initialData?.salePrice ?? 0,
-      tvaRate: initialData?.tvaRate ?? 19,
+      tvaRate: initialData?.tvaRate ?? 0,
       piecesPerCarton: initialData?.piecesPerCarton ?? 1,
       boxesPerCarton: initialData?.boxesPerCarton ?? 1,
     },

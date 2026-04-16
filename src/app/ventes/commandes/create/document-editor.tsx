@@ -109,7 +109,7 @@ export default function DocumentEditor({ clients, products }: { clients: Custome
     const prd = products.find(p => p.id === productId);
     if (prd) {
       setValue(`lines.${index}.unitPrice`, prd.salePrice || 0);
-      setValue(`lines.${index}.taxRate`, prd.tvaRate || 19);
+      setValue(`lines.${index}.taxRate`, prd.tvaRate ?? 0);
     }
   };
 
@@ -217,7 +217,7 @@ export default function DocumentEditor({ clients, products }: { clients: Custome
           <h2 className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
             <Box className="h-4 w-4 text-indigo-500" /> Articles
           </h2>
-          <Button size="sm" type="button" onClick={() => append({ productId: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: 19 })} className="h-8 gap-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400">
+          <Button size="sm" type="button" onClick={() => append({ productId: "", quantity: 1, unitPrice: 0, discount: 0, taxRate: 0 })} className="h-8 gap-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400">
             <Plus className="h-3.5 w-3.5" /> Ajouter une ligne
           </Button>
         </div>

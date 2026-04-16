@@ -123,7 +123,8 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
       "PROFORMA": "Facture Proforma",
       "BL": "Bon de Livraison",
       "BV": "Bon de Vente",
-      "INVOICE": "Facture"
+      "INVOICE": "Facture",
+      "RECEIPT": "Bon de Réception"
     };
     const tit = titles[data.type] || "Document";
     doc.text(tit, docX, y + 16);

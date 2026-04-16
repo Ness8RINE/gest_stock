@@ -35,7 +35,7 @@ export const NAVIGATION = [
       { title: "Fournisseurs", path: "/achats/fournisseurs" },
       { title: "Dossiers d'importation", path: "/achats/importations" },
       { title: "Commandes Fournisseur", path: "/achats/commandes" },
-      { title: "Nouveau Bon de Réception", path: "/achats/receptions/create" },
+      { title: "Bons de Réception", path: "/achats/receptions" },
       { title: "Factures Fournisseur", path: "/achats/factures" },
     ],
   },
