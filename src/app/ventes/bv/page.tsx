@@ -22,7 +22,11 @@ import {
   Trash2, 
   RefreshCw, 
   MoreVertical,
-  Edit
+  Edit,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Eye
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -31,15 +35,26 @@ import { toast } from "sonner";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
+  DropdownMenuGroup,
   DropdownMenuItem, 
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { generateProformaPDF } from "@/lib/pdf-generator";
+import { useRouter } from "next/navigation";
+
+type SortConfig = {
+  key: "reference" | "date" | "netTotal";
+  direction: "asc" | "desc" | null;
+};
 
 export default function BVListPage() {
+  const router = useRouter();
   const [docs, setDocs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "date", direction: "desc" });
 
   const loadDocs = async () => {
     setIsLoading(true);
@@ -55,7 +70,7 @@ export default function BVListPage() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer ce Bon de Vente ? Cela ne restaurera pas le stock automatiquement.")) return;
+    if (!confirm("Supprimer ce Bon de Vente ? Cela restaurera le stock automatiquement.")) return;
     const res = await deleteDocument(id);
     if (res.success) {
       toast.success("Document supprimé");
@@ -65,10 +80,35 @@ export default function BVListPage() {
     }
   };
 
-  const filteredDocs = docs.filter(doc => 
+  const handleSort = (key: SortConfig["key"]) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc"
+    }));
+  };
+
+  const sortedDocs = [...docs].sort((a, b) => {
+    if (!sortConfig.direction) return 0;
+    let aVal = a[sortConfig.key];
+    let bVal = b[sortConfig.key];
+    if (sortConfig.key === "date") {
+      aVal = new Date(aVal).getTime();
+      bVal = new Date(bVal).getTime();
+    }
+    if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+    if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const filteredDocs = sortedDocs.filter(doc => 
     doc.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const SortIcon = ({ column }: { column: SortConfig["key"] }) => {
+    if (sortConfig.key !== column) return <ArrowUpDown className="ml-2 h-3 w-3 opacity-50" />;
+    return sortConfig.direction === "asc" ? <ArrowUp className="ml-2 h-3 w-3" /> : <ArrowDown className="ml-2 h-3 w-3" />;
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50">
@@ -92,13 +132,13 @@ export default function BVListPage() {
       </div>
 
       <div className="px-6 pb-4">
-        <div className="relative">
+        <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input 
             placeholder="Rechercher (Référence, Client)..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+            className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:ring-emerald-500"
           />
         </div>
       </div>
@@ -108,11 +148,17 @@ export default function BVListPage() {
           <Table>
             <TableHeader className="bg-slate-50 dark:bg-slate-900/50 sticky top-0 z-10">
               <TableRow>
-                <TableHead>Référence</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead className="cursor-pointer hover:text-emerald-600" onClick={() => handleSort("reference")}>
+                  <div className="flex items-center">Référence <SortIcon column="reference" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:text-emerald-600" onClick={() => handleSort("date")}>
+                  <div className="flex items-center">Date <SortIcon column="date" /></div>
+                </TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Montant TTC</TableHead>
+                <TableHead className="text-right cursor-pointer hover:text-emerald-600" onClick={() => handleSort("netTotal")}>
+                   <div className="flex items-center justify-end">Montant TTC <SortIcon column="netTotal" /></div>
+                </TableHead>
                 <TableHead className="w-[80px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -136,7 +182,7 @@ export default function BVListPage() {
                         {doc.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-bold">
+                    <TableCell className="text-right font-bold text-slate-900 dark:text-white">
                       {doc.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} DA
                     </TableCell>
                     <TableCell className="text-right">
@@ -145,17 +191,26 @@ export default function BVListPage() {
                           <MoreVertical className="h-4 w-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => generateProformaPDF(doc)}>
-                            <Printer className="h-4 w-4 mr-2" /> Imprimer
-                          </DropdownMenuItem>
-                          <Link href={`/ventes/bv/edit/${doc.id}`}>
-                            <DropdownMenuItem>
-                              <Edit className="h-4 w-4 mr-2" /> Modifier
+                          <DropdownMenuGroup>
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => generateProformaPDF(doc, 'open')}>
+                              <Eye className="h-4 w-4 mr-2 text-slate-400" /> Consulter
                             </DropdownMenuItem>
-                          </Link>
-                          <DropdownMenuItem className="text-red-500" onClick={() => handleDelete(doc.id)}>
-                            <Trash2 className="h-4 w-4 mr-2" /> Supprimer
-                          </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => generateProformaPDF(doc, 'save')}>
+                              <Printer className="h-4 w-4 mr-2 text-slate-400" /> Imprimer
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/ventes/bv/edit/${doc.id}`)}>
+                              <Edit className="h-4 w-4 mr-2 text-emerald-500" /> Modifier
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                          
+                          <DropdownMenuSeparator />
+                          
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem className="text-red-500" onClick={() => handleDelete(doc.id)}>
+                              <Trash2 className="h-4 w-4 mr-2" /> Supprimer
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

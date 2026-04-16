@@ -47,6 +47,7 @@ export const NAVIGATION = [
       { title: "Proformas", path: "/ventes/proforma" },
       { title: "Bons de Livraison", path: "/ventes/bl" },
       { title: "Bons de Vente", path: "/ventes/bv" },
+      { title: "Factures Clients", path: "/ventes/factures" },
       { title: "Ventes (Dashboard)", path: "/ventes/commandes" },
     ],
   },

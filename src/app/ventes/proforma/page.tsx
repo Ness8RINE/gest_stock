@@ -39,11 +39,17 @@ import {
 import { 
   getSaleDocuments, 
   deleteDocument, 
-  transformProformaToDoc, 
+  transformDocToDoc, 
   wipeAllProformas 
 } from "@/app/actions/ventes.actions";
 import { toast } from "sonner";
 import { generateProformaPDF } from "@/lib/pdf-generator";
+import {
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  FileCheck
+} from "lucide-react";
 
 type Doc = {
   id: string;
@@ -52,24 +58,14 @@ type Doc = {
   reference: string;
   customer?: { 
     name: string;
-    address?: string;
-    phone?: string;
-    rc?: string;
-    nis?: string;
-    mf?: string;
-    ai?: string;
   };
-  customerId: string;
-  grossTotal: number;
-  taxTotal: number;
-  stampTax: number;
-  discountTotal: number;
   netTotal: number;
-  createdAt: string; // Vient du JSON
   date: string;
-  paymentMethod: string;
-  lines: any[];
-  _count: { lines: number };
+};
+
+type SortConfig = {
+  key: "reference" | "date" | "netTotal";
+  direction: "asc" | "desc" | null;
 };
 
 export default function ProformaListPage() {
@@ -77,6 +73,7 @@ export default function ProformaListPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [docs, setDocs] = useState<Doc[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "date", direction: "desc" });
 
   const loadDocs = async () => {
     setIsLoading(true);
@@ -102,11 +99,12 @@ export default function ProformaListPage() {
     }
   };
 
-  const handleTransform = async (id: string, target: "BL" | "BV") => {
-    const t = toast.loading(`Transformation en ${target}...`);
-    const res = await transformProformaToDoc(id, target);
+  const handleTransform = async (id: string, target: "BL" | "BV" | "INVOICE") => {
+    const label = target === "BL" ? "Bon de Livraison" : target === "BV" ? "Bon de Vente" : "Facture";
+    const t = toast.loading(`Transformation en ${label}...`);
+    const res = await transformDocToDoc(id, target);
     if (res.success && res.data) {
-      toast.success(`${target} créé avec succès : ${res.data?.reference}`, { id: t });
+      toast.success(`${label} créé avec succès : ${res.data?.reference}`, { id: t });
       loadDocs();
     } else {
       toast.error(res.error, { id: t });
@@ -122,10 +120,35 @@ export default function ProformaListPage() {
     }
   };
 
-  const filtered = docs.filter(d => 
+  const handleSort = (key: SortConfig["key"]) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc"
+    }));
+  };
+
+  const sortedDocs = [...docs].sort((a: any, b: any) => {
+    if (!sortConfig.direction) return 0;
+    let aVal = a[sortConfig.key];
+    let bVal = b[sortConfig.key];
+    if (sortConfig.key === "date") {
+      aVal = new Date(aVal).getTime();
+      bVal = new Date(bVal).getTime();
+    }
+    if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+    if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const filtered = sortedDocs.filter(d => 
     (d.reference || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
     (d.customer?.name || "Comptant").toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const SortIcon = ({ column }: { column: SortConfig["key"] }) => {
+    if (sortConfig.key !== column) return <ArrowUpDown className="ml-2 h-3 w-3 opacity-50" />;
+    return sortConfig.direction === "asc" ? <ArrowUp className="ml-2 h-3 w-3" /> : <ArrowDown className="ml-2 h-3 w-3" />;
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 animate-in fade-in duration-300">
@@ -172,11 +195,17 @@ export default function ProformaListPage() {
           <Table>
             <TableHeader className="bg-slate-50 dark:bg-slate-900/50 sticky top-0 z-10">
               <TableRow>
-                <TableHead>Référence</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead className="cursor-pointer hover:text-indigo-600" onClick={() => handleSort("reference")}>
+                   <div className="flex items-center">Référence <SortIcon column="reference" /></div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:text-indigo-600" onClick={() => handleSort("date")}>
+                   <div className="flex items-center">Date <SortIcon column="date" /></div>
+                </TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Montant TTC</TableHead>
+                <TableHead className="text-right cursor-pointer hover:text-indigo-600" onClick={() => handleSort("netTotal")}>
+                   <div className="flex items-center justify-end">Montant TTC <SortIcon column="netTotal" /></div>
+                </TableHead>
                 <TableHead className="w-[80px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -219,7 +248,7 @@ export default function ProformaListPage() {
                       <DropdownMenuTrigger className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-indigo-50 hover:text-indigo-600 transition-colors border-none bg-transparent">
                           <ChevronDown className="h-4 w-4" />
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuGroup>
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => generateProformaPDF(doc, 'open')} className="cursor-pointer">
@@ -243,6 +272,9 @@ export default function ProformaListPage() {
                           <DropdownMenuItem onClick={() => handleTransform(doc.id, "BV")} className="text-emerald-600 font-semibold focus:bg-emerald-50">
                             <ArrowRightLeft className="mr-2 h-4 w-4" /> Transformer en BV
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleTransform(doc.id, "INVOICE")} className="text-amber-600 font-semibold focus:bg-amber-50">
+                            <FileCheck className="mr-2 h-4 w-4" /> Transformer en Facture
+                          </DropdownMenuItem>
                         </DropdownMenuGroup>
                         
                         <DropdownMenuSeparator />
@@ -264,3 +296,4 @@ export default function ProformaListPage() {
     </div>
   );
 }
+

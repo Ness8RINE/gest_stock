@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { 
   getSaleDocuments, 
   deleteDocument, 
-  transformDocToDoc,
 } from "@/app/actions/ventes.actions";
 import { 
   Table, 
@@ -37,9 +36,9 @@ import { toast } from "sonner";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
+  DropdownMenuGroup,
   DropdownMenuItem, 
   DropdownMenuTrigger,
-  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
@@ -51,7 +50,7 @@ type SortConfig = {
   direction: "asc" | "desc" | null;
 };
 
-export default function BLListPage() {
+export default function FactureListPage() {
   const router = useRouter();
   const [docs, setDocs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,7 +59,7 @@ export default function BLListPage() {
 
   const loadDocs = async () => {
     setIsLoading(true);
-    const res = await getSaleDocuments("BL");
+    const res = await getSaleDocuments("INVOICE");
     if (res.success) {
       setDocs(res.data);
     }
@@ -72,24 +71,13 @@ export default function BLListPage() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer ce Bon de Livraison ? Cela restaurera le stock automatiquement.")) return;
+    if (!confirm("Supprimer cette Facture ? Cela restaurera le stock si elle a été créée directement.")) return;
     const res = await deleteDocument(id);
     if (res.success) {
-      toast.success("Document supprimé");
+      toast.success("Facture supprimée");
       loadDocs();
     } else {
       toast.error(res.error);
-    }
-  };
-
-  const handleTransform = async (id: string) => {
-    const t = toast.loading("Transformation en Facture...");
-    const res = await transformDocToDoc(id, "INVOICE");
-    if (res.success && res.data) {
-      toast.success(`Facture créée avec succès : ${res.data?.reference}`, { id: t });
-      loadDocs();
-    } else {
-      toast.error(res.error, { id: t });
     }
   };
 
@@ -102,12 +90,15 @@ export default function BLListPage() {
 
   const sortedDocs = [...docs].sort((a, b) => {
     if (!sortConfig.direction) return 0;
+    
     let aVal = a[sortConfig.key];
     let bVal = b[sortConfig.key];
+
     if (sortConfig.key === "date") {
       aVal = new Date(aVal).getTime();
       bVal = new Date(bVal).getTime();
     }
+
     if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
     if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
     return 0;
@@ -126,19 +117,24 @@ export default function BLListPage() {
   return (
     <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50">
       <div className="p-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Bons de Livraison</h1>
-          <p className="text-slate-500 text-sm">Gérez vos sorties de stock et livraisons clients</p>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+             <FileCheck size={28} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Factures Clients</h1>
+            <p className="text-slate-500 text-sm">Gestion des factures finalisées et comptabilisées</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={loadDocs}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Actualiser
           </Button>
-          <Link href="/ventes/bl/create">
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+          <Link href="/ventes/factures/create">
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 shadow-sm">
               <Plus className="h-4 w-4 mr-2" />
-              Nouveau BL
+              Nouvelle Facture
             </Button>
           </Link>
         </div>
@@ -148,10 +144,10 @@ export default function BLListPage() {
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input 
-            placeholder="Rechercher (Référence, Client)..." 
+            placeholder="Rechercher une facture..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+            className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:ring-emerald-500"
           />
         </div>
       </div>
@@ -159,17 +155,17 @@ export default function BLListPage() {
       <div className="flex-1 px-6 pb-6 overflow-hidden">
         <div className="h-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-auto">
           <Table>
-            <TableHeader className="bg-slate-50 dark:bg-slate-900/50 sticky top-0 z-10">
+            <TableHeader className="bg-slate-50/80 dark:bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
               <TableRow>
-                <TableHead className="cursor-pointer hover:text-indigo-600" onClick={() => handleSort("reference")}>
+                <TableHead className="cursor-pointer hover:text-emerald-600 transition-colors" onClick={() => handleSort("reference")}>
                   <div className="flex items-center">Référence <SortIcon column="reference" /></div>
                 </TableHead>
-                <TableHead className="cursor-pointer hover:text-indigo-600" onClick={() => handleSort("date")}>
+                <TableHead className="cursor-pointer hover:text-emerald-600 transition-colors" onClick={() => handleSort("date")}>
                   <div className="flex items-center">Date <SortIcon column="date" /></div>
                 </TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Statut</TableHead>
-                <TableHead className="text-right cursor-pointer hover:text-indigo-600" onClick={() => handleSort("netTotal")}>
+                <TableHead className="text-right cursor-pointer hover:text-emerald-600 transition-colors" onClick={() => handleSort("netTotal")}>
                    <div className="flex items-center justify-end">Montant TTC <SortIcon column="netTotal" /></div>
                 </TableHead>
                 <TableHead className="w-[80px] text-right">Actions</TableHead>
@@ -178,57 +174,47 @@ export default function BLListPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10">Chargement...</TableCell>
+                  <TableCell colSpan={6} className="text-center py-20 text-slate-400">Chargement des factures...</TableCell>
                 </TableRow>
               ) : filteredDocs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 text-slate-500">Aucun document trouvé</TableCell>
+                  <TableCell colSpan={6} className="text-center py-20 text-slate-500">Aucune facture trouvée</TableCell>
                 </TableRow>
               ) : (
                 filteredDocs.map((doc) => (
-                  <TableRow key={doc.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30">
-                    <TableCell className="font-medium text-indigo-600 dark:text-indigo-400">{doc.reference}</TableCell>
-                    <TableCell>{new Date(doc.date).toLocaleDateString()}</TableCell>
-                    <TableCell>{doc.customer?.name || "Client de passage"}</TableCell>
+                  <TableRow key={doc.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors group">
+                    <TableCell className="font-bold text-emerald-600 dark:text-emerald-400">{doc.reference}</TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-400">{new Date(doc.date).toLocaleDateString("fr-FR")}</TableCell>
+                    <TableCell className="font-medium">{doc.customer?.name || "Client de passage"}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800 font-semibold">
                         {doc.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-bold">
+                    <TableCell className="text-right font-bold text-slate-900 dark:text-white">
                       {doc.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} DA
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
-                        <DropdownMenuTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "h-8 w-8 p-0")}>
+                        <DropdownMenuTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity")}>
                           <MoreVertical className="h-4 w-4" />
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuGroup>
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuLabel>Options Facture</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => generateProformaPDF(doc, 'open')}>
                               <Eye className="h-4 w-4 mr-2 text-slate-400" /> Consulter
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => generateProformaPDF(doc, 'save')}>
                               <Printer className="h-4 w-4 mr-2 text-slate-400" /> Imprimer
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push(`/ventes/bl/edit/${doc.id}`)}>
-                              <Edit className="h-4 w-4 mr-2 text-indigo-500" /> Modifier
+                            <DropdownMenuItem onClick={() => router.push(`/ventes/factures/edit/${doc.id}`)}>
+                              <Edit className="h-4 w-4 mr-2 text-emerald-500" /> Modifier
                             </DropdownMenuItem>
                           </DropdownMenuGroup>
-                          
                           <DropdownMenuSeparator />
-                          
                           <DropdownMenuGroup>
-                            <DropdownMenuItem onClick={() => handleTransform(doc.id)} className="text-amber-600 font-semibold focus:bg-amber-50">
-                              <FileCheck className="h-4 w-4 mr-2" /> Facturer (Vers Facture)
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                          
-                          <DropdownMenuSeparator />
-                          
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem className="text-red-500" onClick={() => handleDelete(doc.id)}>
+                            <DropdownMenuItem className="text-red-500 focus:bg-red-50" onClick={() => handleDelete(doc.id)}>
                               <Trash2 className="h-4 w-4 mr-2" /> Supprimer
                             </DropdownMenuItem>
                           </DropdownMenuGroup>

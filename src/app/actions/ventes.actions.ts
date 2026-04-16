@@ -74,6 +74,7 @@ export async function deleteDocument(id: string) {
     revalidatePath("/ventes/bl");
     revalidatePath("/ventes/bv");
     revalidatePath("/ventes/proforma");
+    revalidatePath("/ventes/factures");
     return { success: true };
   } catch (error: any) {
     console.error("Error deleting doc:", error);
@@ -146,63 +147,69 @@ async function handleStockMovement(tx: any, docId: string, lines: LineItemInput[
   }
 }
 
-export async function transformProformaToDoc(proformaId: string, targetType: "BL" | "BV") {
+export async function transformDocToDoc(sourceId: string, targetType: "BL" | "BV" | "INVOICE") {
   try {
-    const proforma = await prisma.document.findUnique({
-      where: { id: proformaId },
+    const source = await prisma.document.findUnique({
+      where: { id: sourceId },
       include: { lines: true }
     });
 
-    if (!proforma) return { success: false, error: "Proforma introuvable." };
+    if (!source) return { success: false, error: "Document source introuvable." };
+
+    // Définir si on doit impacter le stock lors de cette transformation
+    // On impacte le stock seulement si on passe d'une Proforma (sans stock) à un BL/BV/Facture
+    // Si on passe d'un BL vers Facture, le stock est déjà déduit, donc on ne le fait PAS ici.
+    const shouldImpactStock = source.type === "PROFORMA" && (targetType === "BL" || targetType === "BV" || targetType === "INVOICE");
 
     const nextRef = await getNextReference(targetType);
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Créer le nouveau document (BL ou BV)
+      // 1. Créer le nouveau document
       const newDoc = await tx.document.create({
         data: {
           type: targetType,
           reference: nextRef,
           date: new Date(),
           status: "VALIDATED",
-          customerId: proforma.customerId,
-          paymentMethod: proforma.paymentMethod,
-          grossTotal: proforma.grossTotal,
-          discountTotal: proforma.discountTotal,
-          taxTotal: proforma.taxTotal,
-          stampTax: proforma.stampTax,
-          netTotal: proforma.netTotal,
-          parentId: proforma.id,
+          customerId: source.customerId,
+          paymentMethod: source.paymentMethod,
+          grossTotal: source.grossTotal,
+          discountTotal: source.discountTotal,
+          taxTotal: source.taxTotal,
+          stampTax: source.stampTax,
+          netTotal: source.netTotal,
+          parentId: source.id,
           lines: {
-            create: proforma.lines.map(line => ({
+            create: source.lines.map(line => ({
               productId: line.productId,
               quantity: line.quantity,
               unitPrice: line.unitPrice,
               discount: line.discount,
               taxRate: line.taxRate,
-              warehouseId: line.warehouseId, // Sera null si non défini dans la proforma
+              warehouseId: line.warehouseId,
               batchId: line.batchId
             }))
           }
         }
       });
 
-      // 2. Gérer le stock (Si BL ou BV)
-      const linesForStock = proforma.lines.map(l => ({
-        productId: l.productId,
-        quantity: l.quantity,
-        unitPrice: l.unitPrice,
-        discount: l.discount,
-        taxRate: l.taxRate,
-        warehouseId: l.warehouseId || undefined,
-        batchId: l.batchId || undefined
-      }));
-      
-      await handleStockMovement(tx, newDoc.id, linesForStock, "OUT");
+      // 2. Gérer le stock seulement si nécessaire
+      if (shouldImpactStock) {
+        const linesForStock = source.lines.map(l => ({
+          productId: l.productId,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          discount: l.discount,
+          taxRate: l.taxRate,
+          warehouseId: l.warehouseId || undefined,
+          batchId: l.batchId || undefined
+        }));
+        await handleStockMovement(tx, newDoc.id, linesForStock, "OUT");
+      }
 
-      // 3. Marquer la proforma comme validée
+      // 3. Marquer le source comme validé
       await tx.document.update({
-        where: { id: proformaId },
+        where: { id: sourceId },
         data: { status: "VALIDATED" }
       });
 
@@ -212,6 +219,7 @@ export async function transformProformaToDoc(proformaId: string, targetType: "BL
     revalidatePath("/ventes/bl");
     revalidatePath("/ventes/bv");
     revalidatePath("/ventes/proforma");
+    revalidatePath("/ventes/factures");
     return { success: true, data: result };
   } catch (error: any) {
     console.error("Error transforming doc:", error);
@@ -271,8 +279,8 @@ export async function createSaleDocument(data: CreateDocumentInput) {
         }
       });
 
-      // Impact Stock si BL ou BV
-      if (data.type === 'BL' || data.type === 'BV') {
+      // Impact Stock si BL, BV ou Facture directe
+      if (data.type === 'BL' || data.type === 'BV' || data.type === 'INVOICE') {
         await handleStockMovement(tx, document.id, data.lines, "OUT");
       }
 
@@ -282,6 +290,7 @@ export async function createSaleDocument(data: CreateDocumentInput) {
     revalidatePath("/ventes/bl");
     revalidatePath("/ventes/bv");
     revalidatePath("/ventes/proforma");
+    revalidatePath("/ventes/factures");
     return { success: true, data: result };
   } catch (error: any) {
     console.error("Erreur serveur Vente:", error);
@@ -401,6 +410,7 @@ export async function updateSaleDocument(id: string, data: CreateDocumentInput) 
     revalidatePath("/ventes/bl");
     revalidatePath("/ventes/bv");
     revalidatePath("/ventes/proforma");
+    revalidatePath("/ventes/factures");
     return { success: true, data: result };
   } catch (error: any) {
     console.error("Erreur mise à jour document:", error);
