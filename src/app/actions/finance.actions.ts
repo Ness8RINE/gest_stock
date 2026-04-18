@@ -72,10 +72,12 @@ export async function getUnpaidInvoices(partnerId: string, type: "CUSTOMER" | "S
         OR: [
           { customerId: partnerId },
           { supplierId: partnerId }
-        ]
+        ],
+        childDocuments: { none: {} } // Uniquement les documents finaux (non transformés)
       },
       include: {
-        paymentMatches: true
+        paymentMatches: true,
+        childDocuments: true
       },
       orderBy: { date: "asc" }
     });

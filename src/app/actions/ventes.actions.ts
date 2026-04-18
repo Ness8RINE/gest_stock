@@ -85,10 +85,15 @@ export async function transformDocToDoc(sourceId: string, targetType: "BL" | "BV
   try {
     const source = await prisma.document.findUnique({
       where: { id: sourceId },
-      include: { lines: true }
+      include: { lines: true, childDocuments: true }
     });
 
-    if (!source) return { success: false, error: "Document source introuvable." };
+    if (!source) throw new Error("Document source introuvable.");
+
+    // Bloquer si le document a déjà été transformé (éviter les doublons BL/BV/Facture)
+    if (source.childDocuments && source.childDocuments.length > 0) {
+      throw new Error(`Ce document (${source.reference}) a déjà été transformé.`);
+    }
 
     // Définir si on doit impacter le stock lors de cette transformation
     // On impacte le stock seulement si on passe d'une Proforma (sans stock) à un BL/BV/Facture

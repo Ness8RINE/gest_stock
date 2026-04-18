@@ -218,12 +218,12 @@ export default function SaleReturnEditor({ customers, products }: SaleReturnEdit
                   <CollapsibleTrigger className="w-full">
                     <div className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-orange-50/50 transition-all border border-transparent hover:border-orange-100 group">
                       <div className="flex flex-col items-start min-w-0">
-                        <span className="font-extrabold text-sm text-slate-800 truncate group-hover:text-orange-600">{prd.designation}</span>
+                        <span className="font-extrabold text-sm text-slate-800 whitespace-normal leading-tight group-hover:text-orange-600">{prd.designation}</span>
                         <span className="text-[10px] text-slate-400 font-mono italic uppercase tracking-tighter">{prd.reference}</span>
                       </div>
                       <div className="flex flex-col items-end whitespace-nowrap ml-4">
                         <span className="text-xs font-black text-slate-700">
-                          Stock: {totalStock.toLocaleString()}
+                           {totalStock.toLocaleString()} en stock
                         </span>
                         <div className="flex items-center text-[9px] text-orange-500 mt-1 uppercase font-black tracking-widest">
                           {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
@@ -282,7 +282,7 @@ export default function SaleReturnEditor({ customers, products }: SaleReturnEdit
                         return (
                           <TableRow key={field.id} className="border-slate-100 hover:bg-orange-50/10 transition-colors">
                             <TableCell className="p-4">
-                               <div className="font-black text-slate-900 text-sm truncate uppercase tracking-tight">{line.designation}</div>
+                                <div className="font-black text-slate-900 text-sm whitespace-normal leading-tight uppercase tracking-tight">{line.designation}</div>
                                <div className="flex items-center gap-2 mt-2">
                                   <Badge variant="outline" className="text-[9px] font-black border-orange-200 text-orange-600 bg-orange-50 uppercase tracking-widest">LOT: {line.batchNumber}</Badge>
                                </div>
@@ -349,7 +349,7 @@ export default function SaleReturnEditor({ customers, products }: SaleReturnEdit
                    </div>
                 </div>
 
-                <div className="bg-orange-600 text-white p-4 px-10 rounded-3xl flex flex-col items-end shadow-2xl border-t-4 border-white/20 scale-110 -translate-y-2">
+                 <div className="bg-orange-600 text-white p-3 px-6 rounded-2xl flex flex-col items-end shadow-xl border-t-2 border-white/10">
                    <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-80 mb-1">Total Crédit Client</span>
                    <div className="text-4xl font-black tracking-tighter">
                       {netTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-sm font-bold opacity-60">DA</span>

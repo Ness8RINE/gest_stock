@@ -246,7 +246,7 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
              {filteredProducts.map(prd => (
                <div key={prd.id} onClick={() => addProductToReceipt(prd)} className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 cursor-pointer select-none transition-colors border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800">
                  <div className="flex flex-col items-start text-left flex-1 pr-2">
-                   <span className="font-semibold text-sm text-slate-800 dark:text-slate-200 line-clamp-1">{prd.designation}</span>
+                   <span className="font-semibold text-sm text-slate-800 dark:text-slate-200 whitespace-normal leading-tight">{prd.designation}</span>
                    <span className="text-[10px] text-slate-500 font-mono mt-0.5">{prd.reference} | {prd.piecesPerCarton} pcs/carton</span>
                  </div>
                  <ChevronRight className="h-4 w-4 text-emerald-500 opacity-50" />
@@ -288,7 +288,7 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
                     return (
                       <TableRow key={field.id} className="group hover:bg-emerald-50/30 h-14">
                         <TableCell className="p-2">
-                          <span className="text-xs font-bold block text-slate-700 dark:text-slate-200">{line.designation}</span>
+                          <span className="text-xs font-bold block text-slate-700 dark:text-slate-200 whitespace-normal leading-tight">{line.designation}</span>
                         </TableCell>
                         <TableCell className="p-2">
                            <select {...register(`lines.${index}.warehouseId`)} className="h-8 w-full text-xs rounded border-slate-200 bg-white">

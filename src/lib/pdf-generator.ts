@@ -132,7 +132,9 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
       "INVOICE": "Facture",
       "RECEIPT": "Bon de Réception",
       "EXCHANGE": "Bon d'Échange",
-      "DELIVERY": "Bon d'Enlèvement"
+      "DELIVERY": "Bon d'Enlèvement",
+      "CREDIT_NOTE": "Facture d'Avoir",
+      "PURCHASE_RETURN": "Facture d'Avoir (Retour)"
     };
     const tit = titles[data.type] || "Document";
     doc.text(tit, docX, y + 16);
@@ -249,7 +251,9 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
       "BV": "le présent bon de vente",
       "RECEIPT": "le présent bon de réception",
       "EXCHANGE": "le présent bon d'échange",
-      "DELIVERY": "le présent bon d'enlèvement"
+      "DELIVERY": "le présent bon d'enlèvement",
+      "CREDIT_NOTE": "la présente facture d'avoir",
+      "PURCHASE_RETURN": "la présente facture d'avoir"
     };
     const currentDocPhrase = phraseMapping[data.type] || "le présent document";
 

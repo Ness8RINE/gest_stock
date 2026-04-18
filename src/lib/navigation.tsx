@@ -53,7 +53,6 @@ export const NAVIGATION = [
       { title: "Bons d'Échange", path: "/ventes/echanges" },
       { title: "Avoirs Clients", path: "/ventes/avoirs" },
       { title: "Factures Clients", path: "/ventes/factures" },
-      { title: "Ventes (Dashboard)", path: "/ventes/commandes" },
     ],
   },
   {

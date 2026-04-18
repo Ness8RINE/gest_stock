@@ -339,7 +339,7 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
                   <CollapsibleTrigger className="w-full text-left bg-transparent p-0 border-none outline-none">
                     <div className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer select-none transition-colors border border-transparent hover:border-slate-200">
                       <div className="flex flex-col items-start text-left flex-1">
-                        <span className="font-semibold text-sm text-slate-800 dark:text-slate-200 line-clamp-1">{prd.designation}</span>
+                        <span className="font-semibold text-sm text-slate-800 dark:text-slate-200 whitespace-normal leading-tight">{prd.designation}</span>
                         <span className="text-[10px] text-slate-500 font-mono">{prd.reference}</span>
                       </div>
                       <div className="flex flex-col items-end whitespace-nowrap ml-2">
@@ -432,7 +432,7 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
                     return (
                       <TableRow key={field.id} className="group hover:bg-slate-50 h-14">
                         <TableCell className="p-2">
-                          <span className="text-xs font-semibold block leading-tight">{line.designation}</span>
+                          <span className="text-xs font-semibold block leading-normal whitespace-normal">{line.designation}</span>
                           <span className="text-[10px] text-slate-400 font-mono">{line.reference}</span>
                         </TableCell>
 
