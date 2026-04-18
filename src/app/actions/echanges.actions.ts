@@ -2,8 +2,9 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { getNextReference } from "@/lib/sequences";
+import { getNextReferenceAction } from "./sequences.actions";
 import { logAction } from "@/lib/audit";
+import { recordStockMovement, rollbackDocumentStock } from "@/lib/stock-engine";
 
 export type ExchangeLineInput = {
   productId: string;
@@ -39,7 +40,7 @@ export async function createExchange(data: CreateExchangeInput) {
       });
 
       // 1. Génération de référence automatique
-      const ref = data.reference || await getNextReference("EXCHANGE");
+      const ref = data.reference || await getNextReferenceAction("EXCHANGE");
 
       // 1. Créer le Document d'Échange
       const document = await tx.document.create({
@@ -71,63 +72,17 @@ export async function createExchange(data: CreateExchangeInput) {
           }
         });
 
-        // - Mouvement de stock
-        await tx.stockMovement.create({
-          data: {
-            productId: line.productId,
-            batchId: line.batchId,
-            warehouseId: line.warehouseId,
-            type: line.type,
-            quantity: line.quantity,
-            sourceDocumentId: document.id,
-            userId: systemUser.id,
-            date: data.date
-          }
+        // - Utiliser le moteur de stock pour enregistrer le mouvement (ENTRÉE ou SORTIE)
+        await recordStockMovement(tx, {
+          productId: line.productId,
+          warehouseId: line.warehouseId,
+          batchId: line.batchId,
+          type: line.type,
+          quantity: line.quantity,
+          sourceDocumentId: document.id,
+          userId: systemUser.id,
+          date: data.date
         });
-
-        // - Mise à jour de l'inventaire
-        if (line.type === "IN") {
-          // Produit rendu par le client -> Augmente notre stock
-          await tx.inventory.upsert({
-            where: {
-              productId_batchId_warehouseId: {
-                productId: line.productId,
-                batchId: line.batchId,
-                warehouseId: line.warehouseId
-              }
-            },
-            create: {
-              productId: line.productId,
-              batchId: line.batchId,
-              warehouseId: line.warehouseId,
-              quantity: line.quantity,
-              reservedQuantity: 0
-            },
-            update: {
-              quantity: { increment: line.quantity }
-            }
-          });
-        } else {
-          // Produit pris par le client -> Diminue notre stock
-          const inv = await tx.inventory.findUnique({
-            where: {
-              productId_batchId_warehouseId: {
-                productId: line.productId,
-                batchId: line.batchId,
-                warehouseId: line.warehouseId
-              }
-            }
-          });
-
-          if (!inv || inv.quantity < line.quantity) {
-             throw new Error(`Stock insuffisant pour l'article ${line.productId} (Lot: ${line.batchId})`);
-          }
-
-          await tx.inventory.update({
-            where: { id: inv.id },
-            data: { quantity: { decrement: line.quantity } }
-          });
-        }
       }
 
       return document;
@@ -178,33 +133,17 @@ export async function deleteExchange(id: string) {
       if (!doc) return { success: false, error: "Échange introuvable." };
   
       await prisma.$transaction(async (tx) => {
-        // Pour supprimer un échange, on doit inverser TOUS les mouvements liés au document
-        const movements = await tx.stockMovement.findMany({
-            where: { sourceDocumentId: id }
-        });
+        // 1. Inverser tout le stock lié à ce document via le moteur
+        await rollbackDocumentStock(tx, id);
 
-        for (const m of movements) {
-            if (m.type === "IN") {
-                // Il était entré, on le ressort
-                await tx.inventory.update({
-                    where: { productId_batchId_warehouseId: { productId: m.productId, batchId: m.batchId, warehouseId: m.warehouseId } },
-                    data: { quantity: { decrement: m.quantity } }
-                });
-            } else {
-                // Il était sorti, on le rerentre
-                await tx.inventory.update({
-                    where: { productId_batchId_warehouseId: { productId: m.productId, batchId: m.batchId, warehouseId: m.warehouseId } },
-                    data: { quantity: { increment: m.quantity } }
-                });
-            }
-        }
-
-        await tx.stockMovement.deleteMany({ where: { sourceDocumentId: id } });
+        // 2. Supprimer les lignes et le document
         await tx.documentLine.deleteMany({ where: { documentId: id } });
         await tx.document.delete({ where: { id } });
       });
   
       revalidatePath("/ventes/echanges");
+      revalidatePath("/stock/inventaire");
+      revalidatePath("/");
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || "Erreur suppression" };

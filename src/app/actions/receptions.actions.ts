@@ -4,7 +4,8 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DocumentType } from "@prisma/client";
 import { logAction } from "@/lib/audit";
-import { getNextReference } from "@/lib/sequences";
+import { getNextReferenceAction } from "./sequences.actions";
+import { recordStockMovement, rollbackDocumentStock } from "@/lib/stock-engine";
 
 export type ReceiptLineInput = {
   productId: string;
@@ -28,6 +29,12 @@ export async function createReceiptDocument(data: CreateReceiptInput) {
   try {
     // 1. Transaction Prisma pour garantir que Lot, Mouvement et Document sont synchronisés
     const result = await prisma.$transaction(async (tx) => {
+      // a. Générer la référence automatique si non fournie
+      let ref = data.reference;
+      if (!ref) {
+        ref = await getNextReferenceAction("RECEIPT");
+      }
+
       // 0. S'assurer qu'un utilisateur "SYSTEM" existe pour la traçabilité
       const systemUser = await tx.user.upsert({
         where: { email: "system@geststock.com" },
@@ -40,9 +47,6 @@ export async function createReceiptDocument(data: CreateReceiptInput) {
           role: "ADMIN"
         }
       });
-
-      // a. Générer la référence automatique si non fournie
-      const ref = data.reference || await getNextReference("RECEIPT");
 
       // a. Calculer les totaux sur le serveur (Sécurité)
       let calculatedGrossTotal = 0;
@@ -107,39 +111,16 @@ export async function createReceiptDocument(data: CreateReceiptInput) {
           }
         });
 
-        // - Mettre à jour l'Inventaire (Stock physique)
-        const inventory = await tx.inventory.upsert({
-          where: {
-            productId_batchId_warehouseId: {
-              productId: line.productId,
-              batchId: batch.id,
-              warehouseId: line.warehouseId
-            }
-          },
-          update: {
-            quantity: { increment: line.quantity }
-          },
-          create: {
-            productId: line.productId,
-            batchId: batch.id,
-            warehouseId: line.warehouseId,
-            quantity: line.quantity,
-            reservedQuantity: 0
-          }
-        });
-
-        // - Enregistrer la traçabilité (Stock Movement)
-        await tx.stockMovement.create({
-          data: {
-            productId: line.productId,
-            batchId: batch.id,
-            warehouseId: line.warehouseId,
-            type: "IN",
-            quantity: line.quantity,
-            sourceDocumentId: document.id,
-            userId: systemUser.id,
-            date: data.date
-          }
+        // - Utiliser le moteur de stock pour enregistrer le mouvement et mettre à jour l'inventaire
+        await recordStockMovement(tx, {
+          productId: line.productId,
+          warehouseId: line.warehouseId,
+          batchId: batch.id,
+          type: "IN",
+          quantity: line.quantity,
+          sourceDocumentId: document.id,
+          userId: systemUser.id,
+          date: data.date
         });
       }
 
@@ -149,8 +130,7 @@ export async function createReceiptDocument(data: CreateReceiptInput) {
     // Log Audit
     await logAction(null, "CREATE_RECEIPT", `Bon de Réception créé: ${result.reference}`);
 
-    revalidatePath("/achats/receptions");
-    revalidatePath("/ventes/bl/create"); // Mettre à jour le catalogue des ventes
+    revalidatePath("/", "layout");
     return { success: true, data: result };
 
   } catch (error) {
@@ -212,54 +192,17 @@ export async function deleteReceipt(id: string) {
     if (!receipt) return { success: false, error: "Réception introuvable." };
 
     await prisma.$transaction(async (tx) => {
-      // 1. Inverser le stock (Faire un mouvement OUT)
-      // On boucle sur chaque ligne pour décrémenter le stock
-      for (const line of receipt.lines) {
-        if (!line.productId || !line.warehouseId || !line.batchId) continue;
+      // 1. Inverser tout le stock lié à ce document via le moteur
+      await rollbackDocumentStock(tx, id);
 
-        const inventory = await tx.inventory.findUnique({
-          where: {
-            productId_batchId_warehouseId: {
-              productId: line.productId,
-              batchId: line.batchId,
-              warehouseId: line.warehouseId
-            }
-          }
-        });
-
-        if (inventory) {
-          // Note: On pourrait vérifier si inventory.quantity >= line.quantity
-          // Mais pour une suppression de réception, on veut restaurer l'état
-          await tx.inventory.update({
-            where: { id: inventory.id },
-            data: { quantity: { decrement: line.quantity } }
-          });
-        }
-
-        // Créer mouvement de sortie pour annuler l'entrée
-        const systemUser = await tx.user.findFirst({ where: { email: "system@geststock.com" } });
-        await tx.stockMovement.create({
-          data: {
-            productId: line.productId,
-            batchId: line.batchId,
-            warehouseId: line.warehouseId,
-            type: "OUT",
-            quantity: line.quantity,
-            date: new Date(),
-            userId: systemUser?.id || "SYSTEM",
-            sourceDocumentId: receipt.id
-          }
-        });
-      }
-
-      // 2. Supprimer la réception
+      // 2. Supprimer le document (Cascade supprimera les lignes)
       await tx.document.delete({ where: { id } });
 
       // Log Audit
       await logAction(null, "DELETE_RECEIPT", `Bon de Réception supprimé: ${receipt.reference}`);
     });
 
-    revalidatePath("/achats/receptions");
+    revalidatePath("/", "layout");
     return { success: true };
   } catch (error: any) {
     console.error("Erreur suppression réception:", error);
@@ -288,33 +231,8 @@ export async function updateReceiptDocument(id: string, data: CreateReceiptInput
         }
       });
 
-      // 1. Inverser l'ancien stock
-      for (const line of oldReceipt.lines) {
-        if (!line.productId || !line.warehouseId || !line.batchId) continue;
-        await tx.inventory.update({
-          where: {
-            productId_batchId_warehouseId: {
-              productId: line.productId,
-              batchId: line.batchId,
-              warehouseId: line.warehouseId
-            }
-          },
-          data: { quantity: { decrement: line.quantity } }
-        });
-        
-        await tx.stockMovement.create({
-          data: {
-            productId: line.productId,
-            batchId: line.batchId,
-            warehouseId: line.warehouseId,
-            type: "OUT",
-            quantity: line.quantity,
-            date: new Date(),
-            userId: systemUser.id,
-            sourceDocumentId: oldReceipt.id
-          }
-        });
-      }
+      // 1. Restaurer l'ancien stock via le moteur
+      await rollbackDocumentStock(tx, id);
 
       // 2. Supprimer les anciennes lignes
       await tx.documentLine.deleteMany({ where: { documentId: id } });
@@ -346,7 +264,7 @@ export async function updateReceiptDocument(id: string, data: CreateReceiptInput
         }
       });
 
-      // 4. Créer les nouvelles lignes et mettre à jour le stock
+      // 4. Créer les nouvelles lignes et enregistrer les nouveaux mouvements
       for (const line of data.lines) {
         const batch = await tx.batch.upsert({
           where: {
@@ -379,34 +297,23 @@ export async function updateReceiptDocument(id: string, data: CreateReceiptInput
           }
         });
 
-        await tx.inventory.upsert({
-          where: {
-            productId_batchId_warehouseId: {
-              productId: line.productId,
-              batchId: batch.id,
-              warehouseId: line.warehouseId
-            }
-          },
-          update: { quantity: { increment: line.quantity } },
-          create: {
-            productId: line.productId, batchId: batch.id, warehouseId: line.warehouseId,
-            quantity: line.quantity, reservedQuantity: 0
-          }
-        });
-
-        await tx.stockMovement.create({
-          data: {
-            productId: line.productId, batchId: batch.id, warehouseId: line.warehouseId,
-            type: "IN", quantity: line.quantity, sourceDocumentId: document.id,
-            userId: systemUser.id, date: data.date
-          }
+        // Utiliser le moteur pour le nouveau stock
+        await recordStockMovement(tx, {
+          productId: line.productId,
+          warehouseId: line.warehouseId,
+          batchId: batch.id,
+          type: "IN",
+          quantity: line.quantity,
+          sourceDocumentId: document.id,
+          userId: systemUser.id,
+          date: data.date
         });
       }
 
       return document;
     });
 
-    revalidatePath("/achats/receptions");
+    revalidatePath("/", "layout");
     return { success: true, data: result };
   } catch (error) {
     console.error("Erreur mise à jour réception:", error);

@@ -4,7 +4,8 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DocumentType } from "@prisma/client";
 import { logAction } from "@/lib/audit";
-import { getNextReference } from "@/lib/sequences";
+import { getNextReferenceAction } from "./sequences.actions";
+import { recordStockMovement } from "@/lib/stock-engine";
 
 export type TransferLineInput = {
   productId: string;
@@ -44,7 +45,7 @@ export async function createTransfer(data: CreateTransferInput) {
       });
 
       // a. Générer la référence automatique si non fournie
-      const ref = data.reference || await getNextReference("TRANSFER");
+      const ref = data.reference || await getNextReferenceAction("TRANSFER");
 
       // 1. Créer le Document de transfert
       const document = await tx.document.create({
@@ -85,57 +86,28 @@ export async function createTransfer(data: CreateTransferInput) {
           }
         });
 
-        // - Mouvement de SORTIE (Source)
-        await tx.stockMovement.create({
-          data: {
-            productId: line.productId,
-            batchId: line.batchId,
-            warehouseId: data.fromWarehouseId,
-            type: "OUT",
-            quantity: line.quantity,
-            sourceDocumentId: document.id,
-            userId: systemUser.id,
-            date: data.date
-          }
+        // - Mouvement de SORTIE (Source) via le moteur
+        await recordStockMovement(tx, {
+          productId: line.productId,
+          warehouseId: data.fromWarehouseId,
+          batchId: line.batchId,
+          type: "OUT",
+          quantity: line.quantity,
+          sourceDocumentId: document.id,
+          userId: systemUser.id,
+          date: data.date
         });
 
-        // - Mouvement d'ENTRÉE (Cible)
-        await tx.stockMovement.create({
-          data: {
-            productId: line.productId,
-            batchId: line.batchId,
-            warehouseId: data.toWarehouseId,
-            type: "IN",
-            quantity: line.quantity,
-            sourceDocumentId: document.id,
-            userId: systemUser.id,
-            date: data.date
-          }
-        });
-
-        // - Mise à jour physique Source (Décrémenter)
-        await tx.inventory.update({
-          where: { id: sourceInventory.id },
-          data: { quantity: { decrement: line.quantity } }
-        });
-
-        // - Mise à jour physique Cible (Incrémenter/Créer)
-        await tx.inventory.upsert({
-          where: {
-            productId_batchId_warehouseId: {
-              productId: line.productId,
-              batchId: line.batchId,
-              warehouseId: data.toWarehouseId
-            }
-          },
-          update: { quantity: { increment: line.quantity } },
-          create: {
-            productId: line.productId,
-            batchId: line.batchId,
-            warehouseId: data.toWarehouseId,
-            quantity: line.quantity,
-            reservedQuantity: 0
-          }
+        // - Mouvement d'ENTRÉE (Cible) via le moteur
+        await recordStockMovement(tx, {
+          productId: line.productId,
+          warehouseId: data.toWarehouseId,
+          batchId: line.batchId,
+          type: "IN",
+          quantity: line.quantity,
+          sourceDocumentId: document.id,
+          userId: systemUser.id,
+          date: data.date
         });
       }
 
@@ -145,9 +117,7 @@ export async function createTransfer(data: CreateTransferInput) {
     // Log Audit
     await logAction(null, "CREATE_TRANSFER", `Transfert créé: ${result.reference} (${data.fromWarehouseId} -> ${data.toWarehouseId})`);
 
-    revalidatePath("/stock/transferts");
-    revalidatePath("/stock/inventaire");
-    revalidatePath("/stock/mouvements");
+    revalidatePath("/", "layout");
     
     return { success: true, data: result };
   } catch (error: any) {

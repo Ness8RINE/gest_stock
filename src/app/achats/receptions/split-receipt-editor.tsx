@@ -10,7 +10,8 @@ import { FileText, ArrowLeft, Trash2, Save, Search, PackageCheck, BriefcaseBusin
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { createReceiptDocument, updateReceiptDocument, ReceiptLineInput } from "@/app/actions/receptions.actions";
+import { createReceiptDocument, updateReceiptDocument } from "@/app/actions/receptions.actions";
+import type { ReceiptLineInput } from "@/app/actions/receptions.actions";
 import { getNextReferenceAction } from "@/app/actions/sequences.actions";
 
 type Product = {

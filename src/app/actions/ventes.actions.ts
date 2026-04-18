@@ -3,7 +3,8 @@ import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DocumentType } from "@prisma/client";
 import { logAction } from "@/lib/audit";
-import { getNextReference } from "@/lib/sequences";
+import { getNextReferenceAction } from "./sequences.actions";
+import { recordStockMovement, rollbackDocumentStock } from "@/lib/stock-engine";
 
 export type LineItemInput = {
   productId: string;
@@ -41,10 +42,8 @@ export async function deleteDocument(id: string) {
     if (!doc) return { success: false, error: "Document introuvable." };
 
     await prisma.$transaction(async (tx) => {
-      // 1. Restaurer le stock si c'est un BL, BV ou Bon d'Enlèvement
-      if (doc.type === "BL" || doc.type === "BV" || doc.type === "DELIVERY") {
-        await handleStockMovement(tx, doc.id, doc.lines as any, "IN");
-      }
+      // 1. Inverser le stock basé sur les mouvements réels via le moteur
+      await rollbackDocumentStock(tx, id);
 
       // 2. Supprimer le document
       await tx.document.delete({ where: { id } });
@@ -53,11 +52,7 @@ export async function deleteDocument(id: string) {
       await logAction(null, "DELETE_SALE_DOC", `Document ${doc.type} supprimé: ${doc.reference}`);
     });
 
-    revalidatePath("/ventes/bl");
-    revalidatePath("/ventes/bv");
-    revalidatePath("/ventes/enlevement");
-    revalidatePath("/ventes/proforma");
-    revalidatePath("/ventes/factures");
+    revalidatePath("/", "layout");
     return { success: true };
   } catch (error: any) {
     console.error("Error deleting doc:", error);
@@ -66,66 +61,22 @@ export async function deleteDocument(id: string) {
 }
 
 // Helper pour traiter les mouvements de stock
+// Helper pour traiter les mouvements de stock via le moteur
 async function handleStockMovement(tx: any, docId: string, lines: LineItemInput[], type: "IN" | "OUT") {
+  const systemUser = await tx.user.findFirst();
+  
   for (const line of lines) {
     if (!line.productId || !line.warehouseId || !line.batchId) continue;
 
-    // 1. Trouver l'inventaire correspondant
-    const inventory = await tx.inventory.findUnique({
-      where: {
-        productId_batchId_warehouseId: {
-          productId: line.productId,
-          batchId: line.batchId,
-          warehouseId: line.warehouseId
-        }
-      }
-    });
-
-    if (type === "OUT") {
-      if (!inventory || inventory.quantity < line.quantity) {
-        throw new Error(`Stock insuffisant pour le produit dans le dépôt demandé.`);
-      }
-      // Déduire le stock
-      await tx.inventory.update({
-        where: { id: inventory.id },
-        data: { quantity: { decrement: line.quantity } }
-      });
-    } else {
-      // Pour les retours ou annulations un jour
-      if (inventory) {
-        await tx.inventory.update({
-          where: { id: inventory.id },
-          data: { quantity: { increment: line.quantity } }
-        });
-      } else {
-        await tx.inventory.create({
-          data: {
-            productId: line.productId,
-            batchId: line.batchId,
-            warehouseId: line.warehouseId,
-            quantity: line.quantity,
-            reservedQuantity: 0
-          }
-        });
-      }
-    }
-
-    // 2. Créer le mouvement de stock
-    // Note: Pour simplifier ici on utilise un userId fictif ou système si non présent
-    // Dans une app réelle, on passerait l'ID de l'utilisateur connecté
-    const systemUser = await tx.user.findFirst(); 
-
-    await tx.stockMovement.create({
-      data: {
-        productId: line.productId,
-        batchId: line.batchId,
-        warehouseId: line.warehouseId,
-        type: type,
-        quantity: line.quantity,
-        date: new Date(),
-        userId: systemUser?.id || "",
-        sourceDocumentId: docId
-      }
+    await recordStockMovement(tx, {
+      productId: line.productId,
+      warehouseId: line.warehouseId,
+      batchId: line.batchId,
+      type: type,
+      quantity: line.quantity,
+      sourceDocumentId: docId,
+      userId: systemUser?.id || "SYSTEM",
+      date: new Date()
     });
   }
 }
@@ -144,7 +95,7 @@ export async function transformDocToDoc(sourceId: string, targetType: "BL" | "BV
     // Si on passe d'un BL vers Facture, le stock est déjà déduit, donc on ne le fait PAS ici.
     const shouldImpactStock = source.type === "PROFORMA" && (targetType === "BL" || targetType === "BV" || targetType === "INVOICE" || (targetType as any) === "DELIVERY");
 
-    const nextRef = await getNextReference(targetType);
+    const nextRef = await getNextReferenceAction(targetType);
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Créer le nouveau document
@@ -202,10 +153,7 @@ export async function transformDocToDoc(sourceId: string, targetType: "BL" | "BV
     // Log Audit
     await logAction(null, "TRANSFORM_DOC", `Document ${source.type} (${source.reference}) transformé en ${targetType} (${result.reference})`);
 
-    revalidatePath("/ventes/bl");
-    revalidatePath("/ventes/bv");
-    revalidatePath("/ventes/proforma");
-    revalidatePath("/ventes/factures");
+    revalidatePath("/", "layout");
     return { success: true, data: result };
   } catch (error: any) {
     console.error("Error transforming doc:", error);
@@ -227,7 +175,7 @@ export async function createSaleDocument(data: CreateDocumentInput) {
   try {
     let ref = data.reference;
     if (!ref) {
-      ref = await getNextReference(data.type);
+      ref = await getNextReferenceAction(data.type);
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -277,10 +225,7 @@ export async function createSaleDocument(data: CreateDocumentInput) {
     // Log Audit
     await logAction(null, "CREATE_SALE_DOC", `Document ${data.type} créé: ${result.reference}`);
 
-    revalidatePath("/ventes/bl");
-    revalidatePath("/ventes/bv");
-    revalidatePath("/ventes/proforma");
-    revalidatePath("/ventes/factures");
+    revalidatePath("/", "layout");
     return { success: true, data: result };
   } catch (error: any) {
     console.error("Erreur serveur Vente:", error);
@@ -355,12 +300,10 @@ export async function updateSaleDocument(id: string, data: CreateDocumentInput) 
     if (!oldDoc) return { success: false, error: "Document introuvable." };
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Restaurer l'ancien stock si c'était un type impactant le stock
-      if (oldDoc.type === 'BL' || oldDoc.type === 'BV' || oldDoc.type === 'INVOICE' || oldDoc.type === 'DELIVERY') {
-        await handleStockMovement(tx, id, oldDoc.lines as any, "IN");
-      }
+      // 1. Restaurer l'ancien stock via le moteur
+      await rollbackDocumentStock(tx, id);
       
-      // 2. Supprimer les anciennes lignes
+      // 2. Nettoyer les anciennes lignes
       await tx.documentLine.deleteMany({
         where: { documentId: id }
       });
@@ -407,10 +350,7 @@ export async function updateSaleDocument(id: string, data: CreateDocumentInput) 
       return updated;
     });
 
-    revalidatePath("/ventes/bl");
-    revalidatePath("/ventes/bv");
-    revalidatePath("/ventes/proforma");
-    revalidatePath("/ventes/factures");
+    revalidatePath("/", "layout");
     return { success: true, data: result };
   } catch (error: any) {
     console.error("Erreur mise à jour document:", error);
