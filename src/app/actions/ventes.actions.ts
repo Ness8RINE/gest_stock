@@ -2,6 +2,8 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DocumentType } from "@prisma/client";
+import { logAction } from "@/lib/audit";
+import { getNextReference } from "@/lib/sequences";
 
 export type LineItemInput = {
   productId: string;
@@ -28,33 +30,6 @@ export type CreateDocumentInput = {
   lines: LineItemInput[];
 };
 
-export async function getNextReference(type: "PROFORMA" | "BL" | "BV" | "INVOICE" | "DELIVERY") {
-  try {
-    const lastDoc = await prisma.document.findFirst({
-      where: { type },
-      orderBy: { reference: 'desc' },
-      select: { reference: true }
-    });
-
-    const prefix = 
-      type === "PROFORMA" ? "PROF-" : 
-      type === "BL" ? "BL-" : 
-      type === "BV" ? "BV-" : 
-      type === "DELIVERY" ? "BE-" : "FACT-";
-    
-    if (!lastDoc || !lastDoc.reference || !lastDoc.reference.startsWith(prefix)) {
-      return `${prefix}01`;
-    }
-
-    const currentNum = parseInt(lastDoc.reference.replace(prefix, ""));
-    if (isNaN(currentNum)) return `${prefix}01`;
-    const nextNum = currentNum + 1;
-    return `${prefix}${nextNum.toString().padStart(2, '0')}`;
-  } catch (error) {
-    console.error("Error getting next ref:", error);
-    return "";
-  }
-}
 
 export async function deleteDocument(id: string) {
   try {
@@ -73,6 +48,9 @@ export async function deleteDocument(id: string) {
 
       // 2. Supprimer le document
       await tx.document.delete({ where: { id } });
+
+      // Log Audit
+      await logAction(null, "DELETE_SALE_DOC", `Document ${doc.type} supprimé: ${doc.reference}`);
     });
 
     revalidatePath("/ventes/bl");
@@ -221,6 +199,9 @@ export async function transformDocToDoc(sourceId: string, targetType: "BL" | "BV
       return newDoc;
     });
 
+    // Log Audit
+    await logAction(null, "TRANSFORM_DOC", `Document ${source.type} (${source.reference}) transformé en ${targetType} (${result.reference})`);
+
     revalidatePath("/ventes/bl");
     revalidatePath("/ventes/bv");
     revalidatePath("/ventes/proforma");
@@ -293,6 +274,9 @@ export async function createSaleDocument(data: CreateDocumentInput) {
       return document;
     });
 
+    // Log Audit
+    await logAction(null, "CREATE_SALE_DOC", `Document ${data.type} créé: ${result.reference}`);
+
     revalidatePath("/ventes/bl");
     revalidatePath("/ventes/bv");
     revalidatePath("/ventes/proforma");
@@ -363,15 +347,25 @@ export async function getSaleDocumentById(id: string) {
 
 export async function updateSaleDocument(id: string, data: CreateDocumentInput) {
   try {
+    const oldDoc = await prisma.document.findUnique({
+      where: { id },
+      include: { lines: true }
+    });
+
+    if (!oldDoc) return { success: false, error: "Document introuvable." };
+
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Gérer le stock inverse si c'était déjà un BL/BV (très simplifié ici)
-      // Note: On devrait réinjecter l'ancien stock avant de retirer le nouveau.
-      // Pour cette version, on se concentre sur la création propre.
+      // 1. Restaurer l'ancien stock si c'était un type impactant le stock
+      if (oldDoc.type === 'BL' || oldDoc.type === 'BV' || oldDoc.type === 'INVOICE' || oldDoc.type === 'DELIVERY') {
+        await handleStockMovement(tx, id, oldDoc.lines as any, "IN");
+      }
       
+      // 2. Supprimer les anciennes lignes
       await tx.documentLine.deleteMany({
         where: { documentId: id }
       });
 
+      // 3. Mettre à jour le document et créer les nouvelles lignes
       const updated = await tx.document.update({
         where: { id },
         data: {
@@ -405,8 +399,8 @@ export async function updateSaleDocument(id: string, data: CreateDocumentInput) 
         }
       });
 
-      // Mettre à jour stock si BL/BV
-      if (data.type === 'BL' || data.type === 'BV') {
+      // 4. Appliquer le nouveau mouvement de stock
+      if (data.type === 'BL' || data.type === 'BV' || data.type === 'INVOICE' || data.type === 'DELIVERY') {
         await handleStockMovement(tx, id, data.lines, "OUT");
       }
 

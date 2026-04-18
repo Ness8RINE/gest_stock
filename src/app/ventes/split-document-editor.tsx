@@ -18,7 +18,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { createSaleDocument, getNextReference, updateSaleDocument } from "@/app/actions/ventes.actions";
+import { createSaleDocument, updateSaleDocument } from "@/app/actions/ventes.actions";
+import { getNextReferenceAction } from "@/app/actions/sequences.actions";
 import { generateProformaPDF } from "@/lib/pdf-generator";
 
 type Inventory = {
@@ -135,7 +136,7 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
   // Auto-reference au montage (seulement en création)
   useEffect(() => {
     const fetchRef = async () => {
-      const ref = await getNextReference(documentType);
+      const ref = await getNextReferenceAction(documentType);
       setValue("reference", ref);
     };
     if (!initialData && !watch("reference")) {

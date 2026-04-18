@@ -2,6 +2,8 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getNextReference } from "@/lib/sequences";
+import { logAction } from "@/lib/audit";
 
 export type SaleReturnLineInput = {
   productId: string;
@@ -41,11 +43,14 @@ export async function createSaleReturn(data: CreateSaleReturnInput) {
         }
       });
 
+      // 1. Génération de référence automatique
+      const ref = data.reference || await getNextReference("CREDIT_NOTE");
+
       // 1. Création du document d'avoir (CREDIT_NOTE)
       const document = await tx.document.create({
         data: {
           type: "CREDIT_NOTE",
-          reference: data.reference,
+          reference: ref,
           date: data.date,
           status: "VALIDATED",
           customerId: data.customerId,
@@ -113,6 +118,9 @@ export async function createSaleReturn(data: CreateSaleReturnInput) {
 
     revalidatePath("/ventes/avoirs");
     revalidatePath("/stock/inventaire");
+    
+    // Log Audit
+    await logAction(null, "CREATE_SALE_RETURN", `Avoir Client créé: ${result.reference}`);
     
     return { success: true, data: result };
   } catch (error: any) {

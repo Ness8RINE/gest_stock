@@ -6,8 +6,8 @@ import { getWarehouses } from "@/app/actions/depots.actions";
 import { getReceiptById } from "@/app/actions/receptions.actions";
 import { notFound } from "next/navigation";
 
-export default async function EditReceiptPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default async function EditReceiptPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   
   const [suppliersRes, productsRes, warehousesRes, receiptRes] = await Promise.all([
     getSuppliers(),

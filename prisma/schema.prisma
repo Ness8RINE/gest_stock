@@ -96,6 +96,9 @@ model Product {
   inventories       Inventory[]
   movements         StockMovement[]
   documentLines     DocumentLine[]
+
+  @@index([reference])
+  @@index([categoryId])
 }
 
 model Warehouse {
@@ -153,6 +156,10 @@ model StockMovement {
   userId           String
   user             User         @relation(fields: [userId], references: [id])
   sourceDocumentId String?      // Can refer to a Document.id or Transfer document
+  
+  @@index([productId, date])
+  @@index([warehouseId])
+  @@index([type])
 }
 
 model Customer {
@@ -244,6 +251,11 @@ model Document {
 
   currency        String?        @default("DZD")
   exchangeRate    Float?         @default(1.0)
+
+  @@index([type, date])
+  @@index([customerId])
+  @@index([supplierId])
+  @@index([reference])
 }
 
 model DocumentLine {

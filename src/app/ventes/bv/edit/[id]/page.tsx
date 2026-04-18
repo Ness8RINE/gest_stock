@@ -5,7 +5,7 @@ import { getClients } from "@/app/actions/clients.actions";
 import { getProductsWithStock } from "@/app/actions/produits.actions";
 import { notFound } from "next/navigation";
 
-export default async function EditBVPage({ params }: { params: { id: string } }) {
+export default async function EditBVPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   // 1. Fetch the document

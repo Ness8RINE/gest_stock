@@ -3,6 +3,8 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DocumentType } from "@prisma/client";
+import { logAction } from "@/lib/audit";
+import { getNextReference } from "@/lib/sequences";
 
 export type ReceiptLineInput = {
   productId: string;
@@ -18,7 +20,7 @@ export type CreateReceiptInput = {
   reference: string;
   date: Date;
   supplierId: string;
-  netTotal: number;
+  paymentMethod?: string;
   lines: ReceiptLineInput[];
 };
 
@@ -39,16 +41,34 @@ export async function createReceiptDocument(data: CreateReceiptInput) {
         }
       });
 
+      // a. Générer la référence automatique si non fournie
+      const ref = data.reference || await getNextReference("RECEIPT");
+
+      // a. Calculer les totaux sur le serveur (Sécurité)
+      let calculatedGrossTotal = 0;
+      let calculatedTaxTotal = 0;
+
+      data.lines.forEach(l => {
+        const lineHT = (l.quantity || 0) * (l.unitCost || 0);
+        const lineTax = lineHT * ((l.taxRate || 0) / 100);
+        calculatedGrossTotal += lineHT;
+        calculatedTaxTotal += lineTax;
+      });
+
+      const calculatedNetTotal = calculatedGrossTotal + calculatedTaxTotal;
+
       // a. Créer d'abord le Document de Réception (Fournisseur)
       const document = await tx.document.create({
         data: {
           type: "RECEIPT",
-          reference: data.reference || `BR-${Date.now()}`,
+          reference: ref,
           date: data.date,
           status: "VALIDATED",
           supplierId: data.supplierId,
-          netTotal: data.netTotal,
-          grossTotal: data.netTotal,
+          paymentMethod: data.paymentMethod || "virement",
+          grossTotal: calculatedGrossTotal,
+          taxTotal: calculatedTaxTotal,
+          netTotal: calculatedNetTotal,
         }
       });
 
@@ -80,6 +100,7 @@ export async function createReceiptDocument(data: CreateReceiptInput) {
             documentId: document.id,
             productId: line.productId,
             batchId: batch.id,
+            warehouseId: line.warehouseId,
             quantity: line.quantity,
             unitPrice: line.unitCost,
             taxRate: line.taxRate || 0
@@ -124,6 +145,9 @@ export async function createReceiptDocument(data: CreateReceiptInput) {
 
       return document;
     });
+
+    // Log Audit
+    await logAction(null, "CREATE_RECEIPT", `Bon de Réception créé: ${result.reference}`);
 
     revalidatePath("/achats/receptions");
     revalidatePath("/ventes/bl/create"); // Mettre à jour le catalogue des ventes
@@ -230,6 +254,9 @@ export async function deleteReceipt(id: string) {
 
       // 2. Supprimer la réception
       await tx.document.delete({ where: { id } });
+
+      // Log Audit
+      await logAction(null, "DELETE_RECEIPT", `Bon de Réception supprimé: ${receipt.reference}`);
     });
 
     revalidatePath("/achats/receptions");
@@ -292,6 +319,19 @@ export async function updateReceiptDocument(id: string, data: CreateReceiptInput
       // 2. Supprimer les anciennes lignes
       await tx.documentLine.deleteMany({ where: { documentId: id } });
 
+      // Calculer les totaux (Sécurité serveur)
+      let calculatedGrossTotal = 0;
+      let calculatedTaxTotal = 0;
+
+      data.lines.forEach(l => {
+        const lineHT = (l.quantity || 0) * (l.unitCost || 0);
+        const lineTax = lineHT * ((l.taxRate || 0) / 100);
+        calculatedGrossTotal += lineHT;
+        calculatedTaxTotal += lineTax;
+      });
+
+      const calculatedNetTotal = calculatedGrossTotal + calculatedTaxTotal;
+
       // 3. Mettre à jour le Document
       const document = await tx.document.update({
         where: { id },
@@ -299,8 +339,10 @@ export async function updateReceiptDocument(id: string, data: CreateReceiptInput
           reference: data.reference,
           date: data.date,
           supplierId: data.supplierId,
-          netTotal: data.netTotal,
-          grossTotal: data.netTotal,
+          paymentMethod: data.paymentMethod,
+          grossTotal: calculatedGrossTotal,
+          taxTotal: calculatedTaxTotal,
+          netTotal: calculatedNetTotal,
         }
       });
 
@@ -330,6 +372,7 @@ export async function updateReceiptDocument(id: string, data: CreateReceiptInput
             documentId: document.id,
             productId: line.productId,
             batchId: batch.id,
+            warehouseId: line.warehouseId,
             quantity: line.quantity,
             unitPrice: line.unitCost,
             taxRate: line.taxRate || 0

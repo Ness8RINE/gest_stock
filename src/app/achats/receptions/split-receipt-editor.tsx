@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { createReceiptDocument, updateReceiptDocument, ReceiptLineInput } from "@/app/actions/receptions.actions";
+import { getNextReferenceAction } from "@/app/actions/sequences.actions";
 
 type Product = {
   id: string;
@@ -45,6 +46,7 @@ type FormValues = {
   reference: string;
   date: string;
   supplierId: string;
+  paymentMethod: string;
   lines: {
     productId: string;
     designation: string;
@@ -69,6 +71,7 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
       reference: initialData?.reference || "",
       date: initialData?.date ? new Date(initialData.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
       supplierId: initialData?.supplierId || "",
+      paymentMethod: initialData?.paymentMethod || "virement",
       lines: initialData?.lines?.map((l: any) => ({
         productId: l.productId,
         designation: l.product?.designation || "",
@@ -87,13 +90,30 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
   const watchLines = watch("lines");
 
-  const netTotal = useMemo(() => {
-    let t = 0;
+  const totals = useMemo(() => {
+    let ht = 0;
+    let tva = 0;
     watchLines.forEach((line) => {
-      t += (line.quantity || 0) * (line.unitCost || 0);
+      const lineHT = (line.quantity || 0) * (line.unitCost || 0);
+      const lineTVA = lineHT * ((line.taxRate || 0) / 100);
+      ht += lineHT;
+      tva += lineTVA;
     });
-    return t;
+    return { ht, tva, net: ht + tva };
   }, [watchLines]);
+
+  // Chargement automatique de la référence pour un nouveau bon
+  useEffect(() => {
+    if (!initialData?.id) {
+       const loadRef = async () => {
+         const nextRef = await getNextReferenceAction("RECEIPT");
+         if (nextRef) setValue("reference", nextRef);
+       };
+       loadRef();
+    }
+  }, [initialData, setValue]);
+
+  const { ht: totalHT, tva: totalTVA, net: netTotal } = totals;
 
   const addProductToReceipt = (prd: Product) => {
     const defaultWarehouseId = warehouses.length > 0 ? warehouses[0].id : "";
@@ -140,7 +160,7 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
       reference: data.reference,
       date: new Date(data.date),
       supplierId: data.supplierId,
-      netTotal: netTotal,
+      paymentMethod: data.paymentMethod,
       lines: data.lines.map(l => ({
         productId: l.productId,
         warehouseId: l.warehouseId,
@@ -174,7 +194,9 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-5 w-5" /></Button>
           <div className="flex flex-col">
-            <h1 className="text-xl font-black text-emerald-700 dark:text-emerald-500 uppercase tracking-tight">Nouveau Bon de Réception</h1>
+            <h1 className="text-xl font-black text-emerald-700 dark:text-emerald-500 uppercase tracking-tight">
+               {initialData?.id ? `Modifier Bon ${initialData.reference}` : "Nouveau Bon de Réception"}
+            </h1>
             <p className="text-xs text-slate-500 font-medium">Entrée physique de marchandise au stock</p>
           </div>
         </div>
@@ -182,6 +204,16 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
         <div className="flex items-center gap-3 flex-wrap">
           <Input placeholder="N° Bon / N° Facture Frs." {...register("reference")} className="w-56 h-9 font-mono uppercase bg-slate-50" />
           <Input type="date" {...register("date")} className="w-40 h-9" />
+          
+          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1 pr-2">
+             <span className="text-[10px] uppercase font-bold text-slate-400 ml-2">Paiement</span>
+             <select {...register("paymentMethod")} className="h-7 bg-transparent text-sm font-semibold outline-none w-[120px]">
+               <option value="espece">Espèces</option>
+               <option value="virement">Virement</option>
+               <option value="cheque">Chèque</option>
+               <option value="a_terme">À terme</option>
+             </select>
+          </div>
           
           <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-1 pr-2">
              <BriefcaseBusiness className="h-4 w-4 ml-2 text-slate-400" />
@@ -301,12 +333,20 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
              <div className="w-full flex justify-between items-center gap-6 px-4">
                 <div className="text-sm text-emerald-400 flex items-center gap-2">
                   <FileText className="h-4 w-4" /> 
-                  <span className="opacity-80">Remplissez précisément les numéros de lots et déports de destination.</span>
+                  <span className="opacity-80">Remplissez les lots. Le calcul est basé sur le nombre total de PIÈCES.</span>
                 </div>
-                <div className="flex gap-6 items-center">
+                <div className="flex gap-8 items-center">
                   <div className="flex flex-col text-right">
-                    <span className="text-slate-400 text-[10px] uppercase tracking-widest mb-0.5">Valeur Totale Entrante</span>
-                    <span className="font-black text-xl tracking-tight text-white">{netTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} <span className="text-sm">DA</span></span>
+                    <span className="text-slate-400 text-[10px] uppercase tracking-widest">Total H.T</span>
+                    <span className="font-bold text-lg text-white">{totalHT.toLocaleString()} <span className="text-[10px]">DA</span></span>
+                  </div>
+                  <div className="flex flex-col text-right">
+                    <span className="text-slate-400 text-[10px] uppercase tracking-widest">TVA (19%)</span>
+                    <span className="font-bold text-lg text-emerald-400">{totalTVA.toLocaleString()} <span className="text-[10px]">DA</span></span>
+                  </div>
+                  <div className="flex flex-col text-right bg-white/10 px-4 py-1 rounded-lg border border-white/10">
+                    <span className="text-emerald-400 text-[10px] uppercase font-black tracking-widest">NET À PAYER (TTC)</span>
+                    <span className="font-black text-2xl tracking-tight text-white">{netTotal.toLocaleString()} <span className="text-sm">DA</span></span>
                   </div>
                 </div>
              </div>

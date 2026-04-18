@@ -2,6 +2,8 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getNextReference } from "@/lib/sequences";
+import { logAction } from "@/lib/audit";
 
 export type ExchangeLineInput = {
   productId: string;
@@ -36,11 +38,14 @@ export async function createExchange(data: CreateExchangeInput) {
         }
       });
 
+      // 1. Génération de référence automatique
+      const ref = data.reference || await getNextReference("EXCHANGE");
+
       // 1. Créer le Document d'Échange
       const document = await tx.document.create({
         data: {
           type: "EXCHANGE",
-          reference: data.reference,
+          reference: ref,
           date: data.date,
           status: "VALIDATED",
           customerId: data.customerId === "COMPTANT" ? null : data.customerId,
@@ -130,6 +135,10 @@ export async function createExchange(data: CreateExchangeInput) {
 
     revalidatePath("/ventes/echanges");
     revalidatePath("/stock/inventaire");
+    
+    // Log Audit
+    await logAction(null, "CREATE_EXCHANGE", `Bon d'Échange créé: ${result.reference}`);
+    
     return { success: true, data: result };
   } catch (error: any) {
     console.error("Erreur création Échange:", error);

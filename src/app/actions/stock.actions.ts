@@ -3,6 +3,8 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DocumentType } from "@prisma/client";
+import { logAction } from "@/lib/audit";
+import { getNextReference } from "@/lib/sequences";
 
 export type TransferLineInput = {
   productId: string;
@@ -41,11 +43,14 @@ export async function createTransfer(data: CreateTransferInput) {
         }
       });
 
+      // a. Générer la référence automatique si non fournie
+      const ref = data.reference || await getNextReference("TRANSFER");
+
       // 1. Créer le Document de transfert
       const document = await tx.document.create({
         data: {
           type: "TRANSFER" as DocumentType,
-          reference: data.reference || `TRF-${Date.now()}`,
+          reference: ref,
           date: data.date,
           status: "VALIDATED",
         }
@@ -136,6 +141,9 @@ export async function createTransfer(data: CreateTransferInput) {
 
       return document;
     });
+
+    // Log Audit
+    await logAction(null, "CREATE_TRANSFER", `Transfert créé: ${result.reference} (${data.fromWarehouseId} -> ${data.toWarehouseId})`);
 
     revalidatePath("/stock/transferts");
     revalidatePath("/stock/inventaire");

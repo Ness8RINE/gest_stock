@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { logAction } from "@/lib/audit";
 
 export async function getClients() {
   try {
@@ -71,6 +72,10 @@ export async function deleteClient(id: string) {
     });
 
     revalidatePath("/ventes/clients");
+    
+    // Log Audit
+    await logAction(null, "DELETE_CUSTOMER", `Client supprimé (ID: ${id})`);
+    
     return { success: true };
   } catch (error) {
     console.error("Erreur suppression client:", error);

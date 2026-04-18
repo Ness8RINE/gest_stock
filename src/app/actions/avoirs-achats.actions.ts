@@ -2,6 +2,8 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { getNextReference } from "@/lib/sequences";
+import { logAction } from "@/lib/audit";
 
 /**
  * Types pour les entrées d'avoir
@@ -44,11 +46,14 @@ export async function createPurchaseReturn(data: CreateReturnInput) {
         }
       });
 
+      // 1. Génération de référence automatique
+      const ref = data.reference || await getNextReference("PURCHASE_RETURN");
+
       // 1. Création du document d'avoir (PURCHASE_RETURN)
       const document = await tx.document.create({
         data: {
           type: "PURCHASE_RETURN",
-          reference: data.reference,
+          reference: ref,
           date: data.date,
           status: "VALIDATED",
           supplierId: data.supplierId,
@@ -116,6 +121,9 @@ export async function createPurchaseReturn(data: CreateReturnInput) {
     revalidatePath("/achats/avoirs");
     revalidatePath("/stock/mouvements");
     revalidatePath("/stock/inventaire");
+    
+    // Log Audit
+    await logAction(null, "CREATE_PURCHASE_RETURN", `Avoir Fournisseur créé: ${result.reference}`);
     
     return { success: true, data: result };
   } catch (error: any) {

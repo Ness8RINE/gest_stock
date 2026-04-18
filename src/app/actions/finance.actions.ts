@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DocumentStatus } from "@prisma/client";
+import { logAction } from "@/lib/audit";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
@@ -212,6 +213,9 @@ export async function createPayment(data: CreatePaymentInput) {
     revalidatePath("/comptabilite/paiements");
     revalidatePath("/"); // Dashboard
 
+    // Log Audit
+    await logAction(null, "CREATE_PAYMENT", `Paiement enregistré: ${result.amount} DA via ${result.paymentMethod}`);
+
     return { success: true, data: result };
   } catch (error: any) {
     console.error("Payment Error:", error);
@@ -291,6 +295,10 @@ export async function deletePayment(paymentId: string) {
     });
 
     revalidatePath("/comptabilite/paiements");
+    
+    // Log Audit
+    await logAction(null, "DELETE_PAYMENT", `Paiement supprimé (ID: ${paymentId})`);
+    
     return { success: true };
   } catch (error) {
     console.error("Delete Payment Error:", error);
@@ -500,6 +508,9 @@ export async function createExpense(data: {
     revalidatePath("/comptabilite/grand-livre");
     revalidatePath("/comptabilite/tresorerie");
     
+    // Log Audit
+    await logAction(null, data.id ? "UPDATE_EXPENSE" : "CREATE_EXPENSE", `Dépense ${data.id ? 'mise à jour' : 'créée'}: ${expense.category} - ${expense.amount} DA`);
+    
     return { success: true, data: expense };
   } catch (error) {
     console.error("Save Expense Error:", error);
@@ -516,6 +527,10 @@ export async function deleteExpense(id: string) {
     revalidatePath("/comptabilite/depenses");
     revalidatePath("/comptabilite/grand-livre");
     revalidatePath("/comptabilite/tresorerie");
+    
+    // Log Audit
+    await logAction(null, "DELETE_EXPENSE", `Dépense supprimée (ID: ${id})`);
+    
     return { success: true };
   } catch (error) {
     console.error("Delete Expense Error:", error);

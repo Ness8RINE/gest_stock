@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { logAction } from "@/lib/audit";
 
 export async function getProducts() {
   try {
@@ -91,6 +92,10 @@ export async function createProduct(data: any) {
     });
 
     revalidatePath("/stock/produits");
+    
+    // Log Audit
+    await logAction(null, "CREATE_PRODUCT", `Produit créé: ${product.reference} - ${product.designation}`);
+    
     return { 
       success: true, 
       data: { 
@@ -138,6 +143,10 @@ export async function updateProduct(id: string, data: any) {
     });
 
     revalidatePath("/stock/produits");
+    
+    // Log Audit
+    await logAction(null, "UPDATE_PRODUCT", `Module Produit: ${product.reference} mis à jour.`);
+    
     return { 
       success: true, 
       data: { 
@@ -157,6 +166,9 @@ export async function deleteProduct(id: string) {
       where: { id }
     });
 
+    // Log Audit
+    await logAction(null, "DELETE_PRODUCT", `ID Produit supprimé: ${id}`);
+    
     revalidatePath("/stock/produits");
     return { success: true };
   } catch (error) {
