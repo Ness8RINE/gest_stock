@@ -34,7 +34,6 @@ export const NAVIGATION = [
     icon: <Truck size={20} />,
     submenus: [
       { title: "Fournisseurs", path: "/achats/fournisseurs" },
-      { title: "Dossiers d'importation", path: "/achats/importations" },
       { title: "Commandes Fournisseur", path: "/achats/commandes" },
       { title: "Bons de Réception", path: "/achats/receptions" },
       { title: "Avoirs Fournisseur", path: "/achats/avoirs" },

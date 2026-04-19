@@ -11,7 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { createReceiptDocument, updateReceiptDocument } from "@/app/actions/receptions.actions";
-import type { ReceiptLineInput } from "@/app/actions/receptions.actions";
+import { createPurchaseOrder, updatePurchaseOrder } from "@/app/actions/commandes-fournisseurs.actions";
 import { getNextReferenceAction } from "@/app/actions/sequences.actions";
 
 type Product = {
@@ -40,6 +40,7 @@ type SplitReceiptEditorProps = {
   products: Product[];
   warehouses: Warehouse[];
   initialData?: any;
+  documentType?: "PURCHASE_ORDER" | "RECEIPT";
 };
 
 type FormValues = {
@@ -62,7 +63,7 @@ type FormValues = {
   }[];
 };
 
-export default function SplitReceiptEditor({ suppliers, products, warehouses, initialData }: SplitReceiptEditorProps) {
+export default function SplitReceiptEditor({ suppliers, products, warehouses, initialData, documentType = "RECEIPT" }: SplitReceiptEditorProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -76,9 +77,9 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
       lines: initialData?.lines?.map((l: any) => ({
         productId: l.productId,
         designation: l.product?.designation || "",
-        warehouseId: l.warehouseId,
-        batchNumber: l.batch?.batchNumber || "",
-        expirationDate: l.batch?.expirationDate ? new Date(l.batch.expirationDate).toISOString().split("T")[0] : "",
+        warehouseId: l.warehouseId || "",
+        batchNumber: l.batch?.batchNumber || l.batchNumber || "",
+        expirationDate: (l.batch?.expirationDate || l.expirationDate) ? new Date((l.batch?.expirationDate || l.expirationDate)).toISOString().split("T")[0] : "",
         colisage: l.product?.piecesPerCarton || 1,
         cartons: l.quantity / (l.product?.piecesPerCarton || 1),
         quantity: l.quantity,
@@ -91,30 +92,27 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
   const watchLines = watch("lines");
 
-  const totals = useMemo(() => {
-    let ht = 0;
-    let tva = 0;
-    watchLines.forEach((line) => {
-      const lineHT = (line.quantity || 0) * (line.unitCost || 0);
-      const lineTVA = lineHT * ((line.taxRate || 0) / 100);
-      ht += lineHT;
-      tva += lineTVA;
-    });
-    return { ht, tva, net: ht + tva };
-  }, [watchLines]);
+  // Calculs synchrones
+  let totalHT = 0;
+  let totalTVA = 0;
+  watchLines.forEach((line) => {
+    const lineHT = (line.quantity || 0) * (line.unitCost || 0);
+    const lineTVA = lineHT * ((line.taxRate || 0) / 100);
+    totalHT += lineHT;
+    totalTVA += lineTVA;
+  });
+  const netTotal = totalHT + totalTVA;
 
-  // Chargement automatique de la référence pour un nouveau bon
+  // Chargement automatique de la référence pour un nouveau bon/commande
   useEffect(() => {
     if (!initialData?.id) {
        const loadRef = async () => {
-         const nextRef = await getNextReferenceAction("RECEIPT");
+         const nextRef = await getNextReferenceAction(documentType);
          if (nextRef) setValue("reference", nextRef);
        };
        loadRef();
     }
-  }, [initialData, setValue]);
-
-  const { ht: totalHT, tva: totalTVA, net: netTotal } = totals;
+  }, [initialData, setValue, documentType]);
 
   const addProductToReceipt = (prd: Product) => {
     const defaultWarehouseId = warehouses.length > 0 ? warehouses[0].id : "";
@@ -145,17 +143,20 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
 
   const onSubmit = async (data: FormValues) => {
     if (!data.supplierId) return toast.error("Fournisseur obligatoire.");
-    if (data.lines.length === 0) return toast.error("Le bon de réception est vide.");
+    if (data.lines.length === 0) return toast.error("Le document est vide.");
     
-    // Validation des lignes (Lot obligatoire, Dépôt obligatoire)
+    // Validation des lignes (Lot et Dépôt obligatoires UNIQUEMENT pour Réception)
     for (let i = 0; i < data.lines.length; i++) {
         const line = data.lines[i];
-        if (!line.warehouseId) return toast.error(`Ligne ${i+1}: Dépôt obligatoire.`);
-        if (!line.batchNumber.trim()) return toast.error(`Ligne ${i+1}: N° de Lot obligatoire.`);
+        if (documentType === "RECEIPT") {
+          if (!line.warehouseId) return toast.error(`Ligne ${i+1}: Dépôt obligatoire.`);
+          if (!line.batchNumber.trim()) return toast.error(`Ligne ${i+1}: N° de Lot obligatoire.`);
+        }
         if (line.quantity <= 0) return toast.error(`Ligne ${i+1}: Quantité invalide.`);
     }
 
-    const t = toast.loading(data.id ? "Mise à jour du Bon..." : "Création du Bon, des Lots et du Stock...");
+    const isOrder = documentType === "PURCHASE_ORDER";
+    const t = toast.loading(data.id ? "Mise à jour..." : (isOrder ? "Création de la commande..." : "Création du Bon et Stock..."));
     
     const payload = {
       reference: data.reference,
@@ -164,28 +165,44 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
       paymentMethod: data.paymentMethod,
       lines: data.lines.map(l => ({
         productId: l.productId,
-        warehouseId: l.warehouseId,
-        batchNumber: l.batchNumber,
-        expirationDate: l.expirationDate || undefined,
+        warehouseId: isOrder ? undefined : l.warehouseId,
+        batchNumber: isOrder ? undefined : l.batchNumber,
+        expirationDate: isOrder ? undefined : (l.expirationDate || undefined),
         quantity: l.quantity,
         unitCost: l.unitCost,
         taxRate: l.taxRate
       }))
     };
 
-    const res = data.id 
-      ? await updateReceiptDocument(data.id, payload)
-      : await createReceiptDocument(payload);
+    let res;
+    if (isOrder) {
+      res = data.id
+        ? await updatePurchaseOrder(data.id, payload as any)
+        : await createPurchaseOrder(payload as any);
+    } else {
+      res = data.id 
+        ? await updateReceiptDocument(data.id, payload as any)
+        : await createReceiptDocument(payload as any);
+    }
 
     if (res.success) {
-      toast.success(data.id ? "Bon de réception mis à jour !" : "Bon de réception validé !", { id: t });
-      router.push(`/achats/receptions`);
+      toast.success(data.id ? "Document mis à jour !" : "Document validé !", { id: t });
+      router.push(isOrder ? `/achats/commandes` : `/achats/receptions`);
     } else {
       toast.error(res.error, { id: t });
     }
   };
 
   const filteredProducts = products.filter(p => p.designation.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const getDocTitle = () => {
+    if (documentType === "PURCHASE_ORDER") return initialData?.id ? `Modifier Commande ${initialData.reference}` : "Nouvelle Commande Fournisseur";
+    return initialData?.id ? `Modifier Bon ${initialData.reference}` : "Nouveau Bon de Réception";
+  };
+  const getDocSubtitle = () => {
+    if (documentType === "PURCHASE_ORDER") return "Prévisionnel, aucun impact sur le stock.";
+    return "Entrée physique de marchandise au stock";
+  };
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden">
@@ -196,9 +213,9 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
           <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-5 w-5" /></Button>
           <div className="flex flex-col">
             <h1 className="text-xl font-black text-emerald-700 dark:text-emerald-500 uppercase tracking-tight">
-               {initialData?.id ? `Modifier Bon ${initialData.reference}` : "Nouveau Bon de Réception"}
+               {getDocTitle()}
             </h1>
-            <p className="text-xs text-slate-500 font-medium">Entrée physique de marchandise au stock</p>
+            <p className="text-xs text-slate-500 font-medium">{getDocSubtitle()}</p>
           </div>
         </div>
 
@@ -263,9 +280,9 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
                 <TableHeader className="bg-emerald-50/50 dark:bg-emerald-950/20">
                   <TableRow>
                     <TableHead className="w-[15%]">Produit</TableHead>
-                    <TableHead className="w-[12%]">Dépôt Destination</TableHead>
-                    <TableHead className="w-[12%]">Lot N°</TableHead>
-                    <TableHead className="w-[10%]">Date d'Exp.</TableHead>
+                    {documentType !== "PURCHASE_ORDER" && <TableHead className="w-[12%]">Dépôt Destination</TableHead>}
+                    {documentType !== "PURCHASE_ORDER" && <TableHead className="w-[12%]">Lot N°</TableHead>}
+                    {documentType !== "PURCHASE_ORDER" && <TableHead className="w-[10%]">Date d'Exp.</TableHead>}
                     <TableHead className="w-[8%] text-center">Colis. (pcs)</TableHead>
                     <TableHead className="w-[8%] text-center">Cartons</TableHead>
                     <TableHead className="w-[8%] text-center">Pièces</TableHead>
@@ -276,7 +293,7 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
                 </TableHeader>
                 <TableBody>
                   {fields.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} className="h-64 text-center text-slate-400 italic font-medium"><PackageCheck className="h-10 w-10 mx-auto mb-2 opacity-20 text-emerald-500" /> Cliquez sur un produit à gauche pour l'ajouter au bon de réception.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={documentType === "PURCHASE_ORDER" ? 7 : 10} className="h-64 text-center text-slate-400 italic font-medium"><PackageCheck className="h-10 w-10 mx-auto mb-2 opacity-20 text-emerald-500" /> Cliquez sur un produit à gauche pour l'ajouter.</TableCell></TableRow>
                   ) : fields.map((field, index) => {
                     const line = watchLines[index];
                     const q = line?.quantity || 0;
@@ -290,18 +307,22 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
                         <TableCell className="p-2">
                           <span className="text-xs font-bold block text-slate-700 dark:text-slate-200 whitespace-normal leading-tight">{line.designation}</span>
                         </TableCell>
-                        <TableCell className="p-2">
-                           <select {...register(`lines.${index}.warehouseId`)} className="h-8 w-full text-xs rounded border-slate-200 bg-white">
-                             <option value="" disabled>-- Dépôt --</option>
-                             {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                           </select>
-                        </TableCell>
-                        <TableCell className="p-2">
-                           <Input placeholder="L-10A2" {...register(`lines.${index}.batchNumber`)} className="h-8 text-xs font-mono uppercase border-emerald-200 focus-visible:ring-emerald-500" />
-                        </TableCell>
-                        <TableCell className="p-2">
-                           <Input type="date" {...register(`lines.${index}.expirationDate`)} className="h-8 text-xs" />
-                        </TableCell>
+                        {documentType !== "PURCHASE_ORDER" && (
+                          <>
+                            <TableCell className="p-2">
+                               <select {...register(`lines.${index}.warehouseId`)} className="h-8 w-full text-xs rounded border-slate-200 bg-white">
+                                 <option value="" disabled>-- Dépôt --</option>
+                                 {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                               </select>
+                            </TableCell>
+                            <TableCell className="p-2">
+                               <Input placeholder="L-10A2" {...register(`lines.${index}.batchNumber`)} className="h-8 text-xs font-mono uppercase border-emerald-200 focus-visible:ring-emerald-500" />
+                            </TableCell>
+                            <TableCell className="p-2">
+                               <Input type="date" {...register(`lines.${index}.expirationDate`)} className="h-8 text-xs" />
+                            </TableCell>
+                          </>
+                        )}
                         <TableCell className="p-2 text-center text-xs font-mono text-slate-500 bg-slate-50 dark:bg-slate-900/30">
                           {col}
                         </TableCell>

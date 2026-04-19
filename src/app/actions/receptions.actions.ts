@@ -61,7 +61,6 @@ export async function createReceiptDocument(data: CreateReceiptInput) {
 
       const calculatedNetTotal = calculatedGrossTotal + calculatedTaxTotal;
 
-      // a. Créer d'abord le Document de Réception (Fournisseur)
       const document = await tx.document.create({
         data: {
           type: "RECEIPT",
@@ -75,6 +74,7 @@ export async function createReceiptDocument(data: CreateReceiptInput) {
           netTotal: calculatedNetTotal,
         }
       });
+
 
       // b. Boucler sur chaque ligne pour créer le Lot, l'Inventaire et le Mouvement
       for (const line of data.lines) {
@@ -145,6 +145,7 @@ export async function getReceiptDocuments() {
       where: { type: "RECEIPT" },
       include: {
         supplier: true,
+        childDocuments: true,
         lines: {
           include: {
             product: true

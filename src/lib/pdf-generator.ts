@@ -134,7 +134,9 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
       "EXCHANGE": "Bon d'Échange",
       "DELIVERY": "Bon d'Enlèvement",
       "CREDIT_NOTE": "Facture d'Avoir",
-      "PURCHASE_RETURN": "Facture d'Avoir (Retour)"
+      "PURCHASE_RETURN": "Facture d'Avoir (Retour)",
+      "PURCHASE_ORDER": "Bon de Commande",
+      "PURCHASE_INVOICE": "Facture"
     };
     const tit = titles[data.type] || "Document";
     doc.text(tit, docX, y + 16);
