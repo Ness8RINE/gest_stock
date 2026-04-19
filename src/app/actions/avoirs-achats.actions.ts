@@ -61,8 +61,22 @@ export async function createPurchaseReturn(data: CreateReturnInput) {
           grossTotal: data.grossTotal,
           taxTotal: data.taxTotal,
           netTotal: data.netTotal,
+          lines: {
+            create: data.lines.map(line => ({
+              productId: line.productId,
+              batchId: line.batchId,
+              warehouseId: line.warehouseId,
+              quantity: line.quantity,
+              unitPrice: line.unitCost,
+              taxRate: line.taxRate || 0,
+              discount: 0
+            }))
+          }
         }
       });
+
+      for (const line of data.lines) {
+        if (!line.warehouseId || !line.batchId) continue;
 
         // - Utiliser le moteur de stock pour enregistrer la sortie (Avoir fournisseur = Retour marchandise)
         await recordStockMovement(tx, {

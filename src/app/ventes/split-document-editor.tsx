@@ -144,36 +144,26 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
     }
   }, [documentType, setValue, initialData]);
 
-  // Calculations
-  const { grossTotalBase, taxTotal, netTotalBeforeStamp, totalLineDiscount } = useMemo(() => {
-    let g = 0, t = 0, dLines = 0;
-    watchLines.forEach((line) => {
-      const lineBrut = (line.quantity || 0) * (line.unitPrice || 0);
-      const lineDisc = lineBrut * ((line.discount || 0) / 100);
-      const lineNet = lineBrut - lineDisc;
+  // Calculations synchrones (au rendu)
+  let g = 0, t = 0, dLines = 0;
+  watchLines.forEach((line) => {
+    const lineBrut = (line.quantity || 0) * (line.unitPrice || 0);
+    const lineDisc = lineBrut * ((line.discount || 0) / 100);
+    const lineNet = lineBrut - lineDisc;
 
-      dLines += lineDisc;
-      g += lineNet;
-      t += lineNet * ((line.taxRate || 0) / 100);
-    });
+    dLines += lineDisc;
+    g += lineNet;
+    t += lineNet * ((line.taxRate || 0) / 100);
+  });
 
-    // Appliquer la remise globale sur le total HT
-    const globalDiscAmount = g * ((globalDiscount || 0) / 100);
-    const finalHT = g - globalDiscAmount;
-    const finalTax = t * (1 - (globalDiscount || 0) / 100); // Proportionnel
+  const globalDiscAmount = g * ((globalDiscount || 0) / 100);
+  const grossTotalBase = g - globalDiscAmount;
+  const taxTotal = t * (1 - (globalDiscount || 0) / 100);
+  const netTotalBeforeStamp = grossTotalBase + taxTotal;
+  const totalLineDiscount = dLines + globalDiscAmount;
+  const grossTotal = grossTotalBase; // Alias pour compatibilité UI
 
-    return {
-      grossTotalBase: finalHT,
-      taxTotal: finalTax,
-      netTotalBeforeStamp: finalHT + finalTax,
-      totalLineDiscount: dLines + globalDiscAmount
-    };
-  }, [watchLines, globalDiscount]);
-
-  const grossTotal = grossTotalBase; // Pour compatibilité avec la suite du code
-
-
-  const stampValue = applyStamp ? Math.min(netTotalBeforeStamp * 0.01, 2500) : 0; // Algérie standard : 1% max 2500 DA
+  const stampValue = applyStamp ? Math.min(netTotalBeforeStamp * 0.01, 2500) : 0;
   const netTotal = netTotalBeforeStamp + stampValue;
 
   // Add Product to Cart
@@ -209,6 +199,26 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
     if (!data.customerId && documentType !== "BV") return toast.error("Client obligatoire pour ce type de document.");
     if (data.lines.length === 0) return toast.error("Le document est vide.");
 
+    // RECALCUL SÉCURISÉ POUR L'ENREGISTREMENT (Basé UNIQUEMENT sur les vraies lignes finales)
+    let finalG = 0, finalT = 0, finalDLines = 0;
+    data.lines.forEach((line) => {
+      const lineBrut = (line.quantity || 0) * (line.unitPrice || 0);
+      const lineDisc = lineBrut * ((line.discount || 0) / 100);
+      const lineNet = lineBrut - lineDisc;
+      
+      finalDLines += lineDisc;
+      finalG += lineNet;
+      finalT += lineNet * ((line.taxRate || 0) / 100);
+    });
+
+    const finalGlobalDiscAmount = finalG * ((data.globalDiscountPercent || 0) / 100);
+    const finalGrossTotal = finalG - finalGlobalDiscAmount;
+    const finalTaxTotal = finalT * (1 - (data.globalDiscountPercent || 0) / 100);
+    const finalNetBeforeStamp = finalGrossTotal + finalTaxTotal;
+    const finalStampValue = data.applyStampTax ? Math.min(finalNetBeforeStamp * 0.01, 2500) : 0;
+    const finalNetTotal = finalNetBeforeStamp + finalStampValue;
+    const finalTotalLineDiscount = finalDLines + finalGlobalDiscAmount;
+
     const t = toast.loading(initialData ? "Mise à jour..." : "Enregistrement...");
 
     const docData = {
@@ -217,11 +227,11 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
       date: new Date(data.date),
       customerId: data.customerId,
       paymentMethod: data.paymentMethod,
-      stampTax: stampValue,
-      grossTotal: grossTotal,
-      discountTotal: totalLineDiscount,
-      taxTotal: taxTotal,
-      netTotal: netTotal,
+      stampTax: finalStampValue,
+      grossTotal: finalGrossTotal,
+      discountTotal: finalTotalLineDiscount,
+      taxTotal: finalTaxTotal,
+      netTotal: finalNetTotal,
       lines: data.lines.map(l => ({
         productId: l.productId,
         quantity: l.quantity,
