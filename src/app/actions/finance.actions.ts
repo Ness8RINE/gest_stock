@@ -67,7 +67,7 @@ export async function getUnpaidInvoices(partnerId: string, type: "CUSTOMER" | "S
   try {
     const invoices = await prisma.document.findMany({
       where: {
-        type: { in: type === "CUSTOMER" ? ["BL", "BV", "INVOICE"] : ["PURCHASE_INVOICE", "RECEIPT"] },
+        type: { in: type === "CUSTOMER" ? ["BL", "BV", "INVOICE"] : ["PURCHASE_INVOICE"] },
         status: { in: ["VALIDATED", "PARTIAL"] },
         OR: [
           { customerId: partnerId },

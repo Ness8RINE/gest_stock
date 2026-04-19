@@ -88,7 +88,7 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
   };
 
   const drawInfoBlocks = (doc: any, y: number) => {
-    const purchaseTypes = ['RECEIPT', 'PURCHASE_ORDER', 'PURCHASE_RETURN'];
+    const purchaseTypes = ['RECEIPT', 'PURCHASE_ORDER', 'PURCHASE_RETURN', 'PURCHASE_INVOICE'];
     const isPurchase = purchaseTypes.includes(data.type);
     const partnerLabel = isPurchase ? "FOURNISSEUR:" : "CLIENT:";
     

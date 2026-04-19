@@ -62,7 +62,6 @@ export const NAVIGATION = [
       { title: "Paiements & Lettrage", path: "/comptabilite/paiements" },
       { title: "Dépenses", path: "/comptabilite/depenses" },
       { title: "Trésorerie", path: "/comptabilite/tresorerie" },
-      { title: "TVA", path: "/comptabilite/tva" },
     ],
   },
   {

@@ -316,7 +316,9 @@ export default function PaymentEditor({ partners, selectedPayment, onSuccess, on
            </div>
 
            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase px-1">Montant Reçu (DA)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase px-1">
+                {watchedPartnerType === "CUSTOMER" ? "Montant Reçu (DA)" : "Montant Payé (DA)"}
+              </label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-500" />
                 <Input 
