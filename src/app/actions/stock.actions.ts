@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { DocumentType } from "@prisma/client";
 import { logAction } from "@/lib/audit";
 import { getNextReferenceAction } from "./sequences.actions";
-import { recordStockMovement } from "@/lib/stock-engine";
+import { recordStockMovement, rollbackDocumentStock } from "@/lib/stock-engine";
 
 export type TransferLineInput = {
   productId: string;
@@ -161,6 +161,12 @@ export async function getTransfers() {
             batch: true,
             warehouse: true
           }
+        },
+        // On inclut les mouvements pour trouver la cible
+        stockMovements: {
+          where: { type: "IN" },
+          include: { warehouse: true },
+          take: 1
         }
       },
       orderBy: { date: 'desc' }
@@ -169,5 +175,33 @@ export async function getTransfers() {
   } catch (error) {
     console.error("Erreur lecture transferts:", error);
     return { success: false, error: "Erreur serveur" };
+  }
+}
+
+export async function deleteTransfer(id: string) {
+  try {
+    const transfer = await prisma.document.findUnique({
+      where: { id },
+      include: { lines: true }
+    });
+
+    if (!transfer || transfer.type !== "TRANSFER") {
+      throw new Error("Transfert introuvable.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Inverser tout le stock lié (OUT et IN)
+      await rollbackDocumentStock(tx, id);
+
+      // 2. Supprimer le document (Cascade supprimera les lignes)
+      await tx.document.delete({ where: { id } });
+    });
+
+    await logAction(null, "DELETE_TRANSFER", `Transfert supprimé: ${transfer.reference}`);
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erreur suppression transfert:", error);
+    return { success: false, error: error.message || "Échec de la suppression." };
   }
 }

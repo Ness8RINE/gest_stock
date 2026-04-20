@@ -156,6 +156,7 @@ model StockMovement {
   userId           String
   user             User         @relation(fields: [userId], references: [id])
   sourceDocumentId String?      // Can refer to a Document.id or Transfer document
+  document         Document?    @relation("DocumentToMovements", fields: [sourceDocumentId], references: [id])
   
   @@index([productId, date])
   @@index([warehouseId])
@@ -240,6 +241,7 @@ model Document {
   lines           DocumentLine[]
   paymentMatches  PaymentMatch[]
   shippingCosts   ShippingCost[]
+  stockMovements  StockMovement[] @relation("DocumentToMovements")
   
   // To link a BL to an Invoice, or a Reception to a Purchase Order
   parentId        String?
