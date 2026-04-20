@@ -47,6 +47,8 @@ export default function SaleReturnListPage() {
   const [docs, setDocs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const loadDocs = async () => {
     setIsLoading(true);
@@ -72,10 +74,19 @@ export default function SaleReturnListPage() {
     }
   };
 
-  const filteredDocs = docs.filter(doc =>
-    doc.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredDocs = docs.filter(doc => {
+    const matchesSearch = doc.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    let matchesDate = true;
+    if (startDate) matchesDate = matchesDate && new Date(doc.date) >= new Date(startDate);
+    if (endDate) {
+      const eDate = new Date(endDate);
+      eDate.setHours(23, 59, 59, 999);
+      matchesDate = matchesDate && new Date(doc.date) <= eDate;
+    }
+    return matchesSearch && matchesDate;
+  });
 
   const totalCumule = filteredDocs.reduce((acc, doc) => acc + (doc.netTotal || 0), 0);
 
@@ -106,14 +117,31 @@ export default function SaleReturnListPage() {
       </div>
 
       <div className="px-6 pb-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-        <div className="relative max-w-sm w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Rechercher (Référence, Client)..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
-          />
+        <div className="flex flex-wrap items-center gap-4 w-full">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Rechercher (Référence, Client)..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Du</span>
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-10 w-40 bg-white dark:bg-slate-950 border-slate-200" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Au</span>
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-10 w-40 bg-white dark:bg-slate-950 border-slate-200" />
+            </div>
+            {(startDate || endDate) && (
+              <Button variant="ghost" size="sm" onClick={() => { setStartDate(""); setEndDate(""); }} className="h-10 text-slate-400 hover:text-slate-600">
+                Effacer
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="bg-white dark:bg-slate-950 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
@@ -192,6 +220,9 @@ export default function SaleReturnListPage() {
               )}
             </TableBody>
           </Table>
+        </div>
+        <div className="mt-2 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">
+          Total : {filteredDocs.length} items
         </div>
       </div>
     </div>

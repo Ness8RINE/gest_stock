@@ -26,7 +26,6 @@ export const NAVIGATION = [
       { title: "Catégories", path: "/stock/categories" },
       { title: "Transferts", path: "/stock/transferts" },
       { title: "Lots & Inventaire", path: "/stock/inventaire" },
-      { title: "Mouvements", path: "/stock/mouvements" },
     ],
   },
   {

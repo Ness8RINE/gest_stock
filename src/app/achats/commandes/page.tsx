@@ -56,6 +56,8 @@ export default function PurchaseOrderListPage() {
   const [docs, setDocs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "date", direction: "desc" });
 
   const loadDocs = async () => {
@@ -105,10 +107,19 @@ export default function PurchaseOrderListPage() {
     return 0;
   });
 
-  const filteredDocs = sortedDocs.filter(doc =>
-    doc.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredDocs = sortedDocs.filter(doc => {
+    const matchesSearch = doc.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    let matchesDate = true;
+    if (startDate) matchesDate = matchesDate && new Date(doc.date) >= new Date(startDate);
+    if (endDate) {
+      const eDate = new Date(endDate);
+      eDate.setHours(23, 59, 59, 999);
+      matchesDate = matchesDate && new Date(doc.date) <= eDate;
+    }
+    return matchesSearch && matchesDate;
+  });
 
   const totalCumule = filteredDocs.reduce((acc, doc) => acc + (doc.netTotal || 0), 0);
 
@@ -126,7 +137,9 @@ export default function PurchaseOrderListPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Commandes Fournisseur</h1>
-            <p className="text-slate-500 text-sm">Préparez vos commandes avant réception physique (Sans impact stock)</p>
+            <p className="text-slate-500 text-sm">
+               {filteredDocs.length} {filteredDocs.length > 1 ? 'commandes trouvées' : 'commande trouvée'} sur {docs.length}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -143,8 +156,8 @@ export default function PurchaseOrderListPage() {
         </div>
       </div>
 
-      <div className="px-6 pb-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-        <div className="relative max-w-sm w-full">
+      <div className="px-6 pb-4 flex flex-wrap items-center gap-4">
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Rechercher (Référence, Fournisseur)..."
@@ -153,6 +166,22 @@ export default function PurchaseOrderListPage() {
             className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus:ring-orange-500"
           />
         </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Du</span>
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-10 w-40 bg-white dark:bg-slate-950 border-slate-200" />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Au</span>
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-10 w-40 bg-white dark:bg-slate-950 border-slate-200" />
+          </div>
+          {(startDate || endDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setStartDate(""); setEndDate(""); }} className="h-10 text-slate-400 hover:text-slate-600">
+               Effacer
+            </Button>
+          )}
+        </div>
+      </div>
         <div className="flex items-center gap-4 bg-white dark:bg-slate-950 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex flex-col text-right">
             <span className="text-[10px] uppercase font-bold text-slate-400">Total Cumulé (Net)</span>
@@ -161,7 +190,6 @@ export default function PurchaseOrderListPage() {
             </span>
           </div>
         </div>
-      </div>
 
       <div className="flex-1 px-6 pb-6 overflow-hidden flex flex-col min-h-0">
         <div className="bg-white dark:bg-slate-950 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex-1 overflow-hidden flex flex-col">
@@ -253,11 +281,15 @@ export default function PurchaseOrderListPage() {
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  )})
-                )}
+                  )
+                })
+              )}
               </TableBody>
             </Table>
           </div>
+        </div>
+        <div className="mt-2 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">
+          Total : {filteredDocs.length} items
         </div>
       </div>
     </div>

@@ -267,7 +267,7 @@ export default function InventoryList({ initialProducts, warehouses, categories 
                              <History className="h-3 w-3" /> Répartition par Lots et Dépôts
                            </div>
                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                             {relevantInventories.map((inv, idx) => (
+                             {relevantInventories.filter(inv => inv.quantity > 0).map((inv, idx) => (
                                <div key={idx} className="bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-3">
                                  <div className="flex justify-between items-start">
                                     <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold uppercase">{inv.warehouse.name}</span>

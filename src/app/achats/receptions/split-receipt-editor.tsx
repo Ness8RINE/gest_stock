@@ -241,8 +241,8 @@ export default function SplitReceiptEditor({ suppliers, products, warehouses, in
              </select>
           </div>
           
-          <Button onClick={handleSubmit(onSubmit)} className="h-9 bg-emerald-600 hover:bg-emerald-700 shadow-lg text-white gap-2 px-6">
-            <PackageCheck className="h-4 w-4" /> Valider & Entrer le stock
+          <Button onClick={handleSubmit(onSubmit)} className="h-9 bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-lg shadow-orange-600/20 gap-2 border-none">
+            <Save className="h-4 w-4" /> Valider
           </Button>
         </div>
       </div>

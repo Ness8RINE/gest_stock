@@ -76,6 +76,7 @@ export default function SplitReturnEditor({ suppliers, products }: SplitReturnEd
   const [savedDoc, setSavedDoc] = useState<any>(null);
 
   const { register, control, watch, handleSubmit, setValue } = useForm<FormValues>({
+    mode: "onChange",
     defaultValues: {
       reference: "",
       date: new Date().toISOString().split("T")[0],
@@ -225,7 +226,7 @@ export default function SplitReturnEditor({ suppliers, products }: SplitReturnEd
                   <CollapsibleTrigger className="w-full">
                     <div className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-orange-50/50 transition-all border border-transparent hover:border-orange-100 group">
                       <div className="flex flex-col items-start min-w-0">
-                        <span className="font-extrabold text-sm text-slate-800 truncate group-hover:text-orange-600">{prd.designation}</span>
+                        <span className="font-extrabold text-sm text-slate-800 whitespace-normal leading-tight group-hover:text-orange-600">{prd.designation}</span>
                         <span className="text-[10px] text-slate-400 font-mono italic uppercase tracking-tighter">{prd.reference}</span>
                       </div>
                       <div className="flex flex-col items-end whitespace-nowrap ml-4">
@@ -243,7 +244,7 @@ export default function SplitReturnEditor({ suppliers, products }: SplitReturnEd
                       {prd.inventories.length === 0 && (
                         <div className="p-4 text-[11px] text-center text-slate-400 font-bold uppercase italic tracking-widest opacity-50">Aucun lot disponible</div>
                       )}
-                      {prd.inventories.map((inv, idx) => (
+                      {prd.inventories.filter(inv => inv.quantity > 0).map((inv, idx) => (
                         <div key={idx} className="flex items-center justify-between p-3 hover:bg-white transition-colors">
                           <div className="flex flex-col">
                             <span className="text-[10px] font-black text-slate-500 uppercase leading-none mb-1">Lot</span>

@@ -50,6 +50,8 @@ export default function TransferListPage() {
   const [docs, setDocs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -84,9 +86,18 @@ export default function TransferListPage() {
     setIsViewOpen(true);
   };
 
-  const filteredDocs = docs.filter(doc =>
-    doc.reference?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredDocs = docs.filter(doc => {
+    const matchesSearch = doc.reference?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    let matchesDate = true;
+    if (startDate) matchesDate = matchesDate && new Date(doc.date) >= new Date(startDate);
+    if (endDate) {
+      const eDate = new Date(endDate);
+      eDate.setHours(23, 59, 59, 999);
+      matchesDate = matchesDate && new Date(doc.date) <= eDate;
+    }
+    return matchesSearch && matchesDate;
+  });
 
   return (
     <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50">
@@ -97,7 +108,9 @@ export default function TransferListPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Transferts Inter-Dépôts</h1>
-            <p className="text-slate-500 text-sm">Gérez les déplacements de stock entre vos entrepôts</p>
+            <p className="text-slate-500 text-sm">
+               {filteredDocs.length} {filteredDocs.length > 1 ? 'transferts trouvés' : 'transfert trouvé'}  sur {docs.length}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -114,8 +127,8 @@ export default function TransferListPage() {
         </div>
       </div>
 
-      <div className="px-6 pb-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-        <div className="relative max-w-sm w-full">
+      <div className="px-6 pb-4 flex flex-wrap items-center gap-4">
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input 
             placeholder="Rechercher par référence..." 
@@ -123,6 +136,21 @@ export default function TransferListPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 h-10 bg-white dark:bg-slate-950"
           />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Du</span>
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-10 w-40 bg-white dark:bg-slate-950 border-slate-200" />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Au</span>
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-10 w-40 bg-white dark:bg-slate-950 border-slate-200" />
+          </div>
+          {(startDate || endDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setStartDate(""); setEndDate(""); }} className="h-10 text-slate-400 hover:text-slate-600">
+               Effacer
+            </Button>
+          )}
         </div>
       </div>
 
@@ -204,6 +232,9 @@ export default function TransferListPage() {
               )}
             </TableBody>
           </Table>
+        </div>
+        <div className="mt-2 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2">
+          Total : {filteredDocs.length} items
         </div>
       </div>
 

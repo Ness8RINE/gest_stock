@@ -71,6 +71,8 @@ type SortConfig = {
 export default function ProformaListPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [docs, setDocs] = useState<Doc[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "date", direction: "desc" });
@@ -140,10 +142,24 @@ export default function ProformaListPage() {
     return 0;
   });
 
-  const filtered = sortedDocs.filter(d => 
-    (d.reference || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (d.customer?.name || "Comptant").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = sortedDocs.filter(d => {
+    const matchesSearch = (d.reference || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         (d.customer?.name || "Comptant").toLowerCase().includes(searchTerm.toLowerCase());
+    
+    let matchesDate = true;
+    if (startDate) {
+      matchesDate = matchesDate && new Date(d.date) >= new Date(startDate);
+    }
+    if (endDate) {
+      // Pour inclure toute la journée de fin, on peut ajouter 23:59:59 ou comparer intelligemment
+      const dDate = new Date(d.date);
+      const eDate = new Date(endDate);
+      eDate.setHours(23, 59, 59, 999);
+      matchesDate = matchesDate && dDate <= eDate;
+    }
+
+    return matchesSearch && matchesDate;
+  });
 
   const SortIcon = ({ column }: { column: SortConfig["key"] }) => {
     if (sortConfig.key !== column) return <ArrowUpDown className="ml-2 h-3 w-3 opacity-50" />;
@@ -161,13 +177,13 @@ export default function ProformaListPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Liste des Proformas</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Total : {docs.length} documents enregistrés</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {filtered.length} {filtered.length > 1 ? 'documents trouvés' : 'document trouvé'} sur {docs.length}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" className="h-9 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={handleWipe}>
-               <Trash2 className="h-4 w-4 mr-2" /> Initialiser
-            </Button>
+
             <Button size="sm" variant="outline" className="h-9 gap-2" onClick={loadDocs}>
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> Actualiser
             </Button>
@@ -178,8 +194,8 @@ export default function ProformaListPage() {
         </div>
       </div>
 
-      <div className="px-6 pb-4 flex-none">
-        <div className="relative max-w-sm">
+      <div className="px-6 pb-4 flex flex-wrap items-center gap-4">
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input 
             placeholder="Rechercher (Référence, Client)..." 
@@ -187,6 +203,22 @@ export default function ProformaListPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 h-10 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
           />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+             <span className="text-[10px] font-bold text-slate-400 uppercase">Du</span>
+             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-10 w-40 bg-white dark:bg-slate-950 border-slate-200" />
+          </div>
+          <div className="flex items-center gap-1.5">
+             <span className="text-[10px] font-bold text-slate-400 uppercase">Au</span>
+             <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-10 w-40 bg-white dark:bg-slate-950 border-slate-200" />
+          </div>
+          {(startDate || endDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setStartDate(""); setEndDate(""); }} className="h-10 text-slate-400 hover:text-slate-600">
+               Effacer
+            </Button>
+          )}
         </div>
       </div>
 

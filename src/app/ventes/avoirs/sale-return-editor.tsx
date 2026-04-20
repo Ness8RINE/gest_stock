@@ -76,6 +76,7 @@ export default function SaleReturnEditor({ customers, products }: SaleReturnEdit
   const [savedDoc, setSavedDoc] = useState<any>(null);
 
   const { register, control, watch, handleSubmit, setValue } = useForm<FormValues>({
+    mode: "onChange",
     defaultValues: {
       reference: "",
       date: new Date().toISOString().split("T")[0],
@@ -233,15 +234,18 @@ export default function SaleReturnEditor({ customers, products }: SaleReturnEdit
                   </CollapsibleTrigger>
                   <CollapsibleContent className="px-1 pb-1">
                     <div className="bg-slate-100/50 dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-slate-200 dark:divide-slate-800 mt-1 shadow-inner">
-                      {prd.inventories.map((inv, idx) => (
+                      {prd.inventories.filter(inv => inv.quantity > 0).map((inv, idx) => (
                         <div key={idx} className="flex items-center justify-between p-3 hover:bg-white transition-colors">
-                          <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-slate-500 uppercase leading-none mb-1">Dépôt: {inv.warehouse.name}</span>
+                          <div className="flex flex-col text-left items-start">
+                            <span className="text-[10px] font-black text-slate-500 uppercase leading-none mb-1 text-left">Dépôt: {inv.warehouse.name}</span>
                             <span className="text-xs font-black font-mono text-orange-600">Lot: {inv.batch.batchNumber}</span>
                           </div>
-                          <Button size="sm" onClick={() => addProductToReturn(prd, inv)} className="h-7 text-[10px] px-3 bg-orange-100 text-orange-700 hover:bg-orange-600 hover:text-white rounded-lg transition-all border-none">
-                            <Plus className="h-3 w-3 mr-1" /> Choisir
-                          </Button>
+                          <div className="flex items-center gap-3">
+                             <span className="text-xs font-black text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{inv.quantity} <span className="text-[8px] font-normal uppercase">{prd.unit}</span></span>
+                             <Button size="sm" onClick={() => addProductToReturn(prd, inv)} className="h-7 text-[10px] px-3 bg-orange-100 text-orange-700 hover:bg-orange-600 hover:text-white rounded-lg transition-all border-none shadow-sm">
+                               <Plus className="h-3 w-3 mr-1" /> Choisir
+                             </Button>
+                          </div>
                         </div>
                       ))}
                     </div>

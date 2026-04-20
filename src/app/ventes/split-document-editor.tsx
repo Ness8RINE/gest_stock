@@ -367,7 +367,7 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
                       {prd.inventories.length === 0 && (
                         <div className="p-3 text-xs text-center text-slate-500">Aucun lot en stock.</div>
                       )}
-                      {prd.inventories.map((inv, idx) => (
+                      {prd.inventories.filter(inv => inv.quantity > 0).map((inv, idx) => (
                         <div key={idx} className="flex items-center justify-between p-2 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 transition-colors">
                           <div className="flex flex-col">
                             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -545,7 +545,7 @@ export default function SplitDocumentEditor({ documentType, clients, products, i
               <div className="flex gap-6 lg:gap-10 text-sm font-mono items-center">
                 <div className="flex flex-col text-right">
                   <span className="text-slate-400 text-xs uppercase mb-1">Total HT</span>
-                  <span className="font-semibold text-lg">{grossTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span className="font-semibold text-lg text-white">{grossTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="h-8 w-px bg-slate-700 hidden lg:block"></div>
                 <div className="flex flex-col text-right">

@@ -44,6 +44,8 @@ export default function PurchaseReturnsPage() {
   const [docs, setDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -68,10 +70,19 @@ export default function PurchaseReturnsPage() {
     }
   };
 
-  const filtered = docs.filter(d => 
-    d.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = docs.filter(d => {
+    const matchesSearch = d.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         d.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    let matchesDate = true;
+    if (startDate) matchesDate = matchesDate && new Date(d.date) >= new Date(startDate);
+    if (endDate) {
+      const eDate = new Date(endDate);
+      eDate.setHours(23, 59, 59, 999);
+      matchesDate = matchesDate && new Date(d.date) <= eDate;
+    }
+    return matchesSearch && matchesDate;
+  });
 
   return (
     <div className="p-6 space-y-6 flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50">
@@ -94,7 +105,7 @@ export default function PurchaseReturnsPage() {
         </Link>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input 
@@ -103,6 +114,16 @@ export default function PurchaseReturnsPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Du</span>
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-10 w-40 bg-white dark:bg-slate-950 border-slate-200" />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Au</span>
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-10 w-40 bg-white dark:bg-slate-950 border-slate-200" />
+          </div>
         </div>
         <Button variant="outline" size="icon" onClick={load} disabled={loading} className="h-10 w-10 bg-white dark:bg-slate-950 border-slate-200">
           <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -176,6 +197,9 @@ export default function PurchaseReturnsPage() {
             )}
           </TableBody>
         </Table>
+        <div className="mt-2 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 pb-2">
+          Total : {filtered.length} items
+        </div>
       </div>
     </div>
   );
