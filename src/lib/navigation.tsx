@@ -1,15 +1,12 @@
 import React from "react";
 import {
   LayoutDashboard,
-  Package,
-  ShoppingCart,
-  Users,
-  Settings,
   CreditCard,
+  ShoppingCart,
   Truck,
   Box,
-  FileText
 } from "lucide-react";
+
 
 export const NAVIGATION = [
   {
@@ -62,10 +59,5 @@ export const NAVIGATION = [
       { title: "Dépenses", path: "/comptabilite/depenses" },
       { title: "Trésorerie", path: "/comptabilite/tresorerie" },
     ],
-  },
-  {
-    title: "Paramètres",
-    path: "/parametres",
-    icon: <Settings size={20} />,
   },
 ];

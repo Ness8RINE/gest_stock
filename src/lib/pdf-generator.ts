@@ -77,7 +77,8 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
       "Hai Essalem Coop. AEK MOUL EL Maida St Hubert 31000 Oran Algérie",
       "Tél: 06 61 20 55 52 / 06 61 20 55 46 | Fax: 041 24 78 38",
       "Mail: sarlemedsysteme@gmail.com",
-      "R.C: 20B0118190-31/00 | M.F. | A.I. | NIS | Agrement.",
+      "R.C: 20B0118190-31/00 | MF: 002031011819018 | AI: 31577383056",
+      "NIS: 002031010038759 | Agrement: N°964",
       "Cpte. 021 00104 1130065504 86 Société Général LOUBET, Oran"
     ];
     let yHead = 20;

@@ -9,8 +9,11 @@ import {
   ChevronDown, 
   ChevronRight, 
   Menu,
-  Container
+  Container,
+  LogOut
 } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { logout } from "@/lib/actions/auth-actions";
 import { 
   Collapsible,
   CollapsibleContent,
@@ -23,6 +26,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 export function Sidebar() {
   const pathname = usePathname() || "";
   const [isExpanded, setIsExpanded] = useState(true);
+  const { data: session } = useSession();
 
   return (
     <aside 
@@ -61,18 +65,32 @@ export function Sidebar() {
         </nav>
       </ScrollArea>
 
-      <div className="p-4 border-t border-slate-200 dark:border-slate-800 shrink-0">
+      <div className="p-4 border-t border-slate-200 dark:border-slate-800 shrink-0 space-y-4">
          <div className={cn("flex items-center", isExpanded ? "justify-start gap-3" : "justify-center")}>
-            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-indigo-600 shrink-0">
-               AD
+            <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center font-bold text-indigo-600 shrink-0">
+               {session?.user?.name?.charAt(0).toUpperCase() || "U"}
             </div>
             {isExpanded && (
               <div className="flex flex-col truncate">
-                 <span className="text-sm font-semibold truncate">Admin User</span>
-                 <span className="text-xs text-slate-500 truncate">admin@geststock.com</span>
+                 <span className="text-sm font-semibold truncate">{session?.user?.name || "Utilisateur"}</span>
+                 <span className="text-xs text-slate-500 truncate">{session?.user?.email}</span>
+                 <span className="text-[10px] font-bold text-indigo-500 mt-0.5 uppercase">{session?.user?.role}</span>
               </div>
             )}
          </div>
+         
+         <Button 
+           variant="ghost" 
+           size={isExpanded ? "default" : "icon"}
+           onClick={() => logout()}
+           className={cn(
+             "w-full text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 justify-start px-3",
+             !isExpanded && "justify-center px-0"
+           )}
+         >
+           <LogOut size={20} className={cn(isExpanded && "mr-3")} />
+           {isExpanded && <span>Déconnexion</span>}
+         </Button>
       </div>
     </aside>
   );
