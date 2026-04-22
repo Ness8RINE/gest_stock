@@ -7,10 +7,12 @@ import { existsSync } from "fs";
 function getDbPath(): string {
   let dbPath = "./dev.db";
   
+  // En production Desktop, main.ts injecte DATABASE_URL
   if (process.env.DATABASE_URL) {
-    dbPath = process.env.DATABASE_URL.replace(/^file:/, "");
+    return process.env.DATABASE_URL.replace(/^file:/, "");
   }
 
+  // En développement, on cherche AppData
   if (process.env.NODE_ENV !== "production") {
     const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
     const desktopDbPath = path.join(appData, "GestStock", "geststock.db");
@@ -27,13 +29,23 @@ const prismaClientSingleton = () => {
   const sqlitePath = getDbPath();
   const url = `file:${sqlitePath}`;
 
-  // Maintenant que better-sqlite3 est recompilé, on peut l'utiliser partout en toute sécurité
-  const adapter = new PrismaBetterSqlite3({ url });
-  
-  return new PrismaClient({ 
-    // @ts-ignore
-    adapter 
-  });
+  // On essaie d'abord d'utiliser l'adapter better-sqlite3 car c'est le plus performant
+  // Il sera utilisé si le module natif est compatible avec le Node.js courant
+  try {
+    const adapter = new PrismaBetterSqlite3({ url });
+    return new PrismaClient({ adapter });
+  } catch (error) {
+    // Si l'adapter échoue (ex: version de Node différente), on bascule sur le driver standard de Prisma
+    // Cela garantit que l'application démarre toujours, même avec un problème de compilation
+    console.error("[PRISMA] Adapter not available, falling back to standard driver:", error);
+    return new PrismaClient({
+      datasources: {
+        db: {
+          url: url
+        }
+      }
+    });
+  }
 };
 
 declare global {
