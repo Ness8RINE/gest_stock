@@ -2,7 +2,7 @@ import React from "react";
 import { getSaleDocumentById } from "@/actions/ventes.actions";
 import { getClients } from "@/actions/clients.actions";
 import { getProductsWithStock } from "@/actions/produits.actions";
-import SplitDocumentEditor from "@/app/ventes/split-document-editor";
+import SplitDocumentEditor from "@/app/(dashboard)/ventes/split-document-editor";
 import { notFound } from "next/navigation";
 
 export default async function EditProformaPage({ params }: { params: Promise<{ id: string }> }) {

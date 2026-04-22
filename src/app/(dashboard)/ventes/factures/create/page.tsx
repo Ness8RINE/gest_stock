@@ -1,5 +1,5 @@
 import React from "react";
-import SplitDocumentEditor from "@/app/ventes/split-document-editor";
+import SplitDocumentEditor from "@/app/(dashboard)/ventes/split-document-editor";
 import { getClients } from "@/actions/clients.actions";
 import { getProductsWithStock } from "@/actions/produits.actions";
 

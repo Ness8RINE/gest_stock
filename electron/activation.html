@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activation GestStock</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #1e293b;
+        }
+        .card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+        h1 { color: #2563eb; margin-bottom: 0.5rem; }
+        p { color: #64748b; margin-bottom: 2rem; }
+        .machine-id-box {
+            background: #f1f5f9;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            margin-bottom: 1.5rem;
+            word-break: break-all;
+            user-select: all;
+            border: 1px solid #e2e8f0;
+        }
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            box-sizing: border-box;
+            resize: none;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        button:hover { background: #1d4ed8; }
+        .footer { font-size: 0.875rem; margin-top: 1.5rem; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Activation Requise</h1>
+        <p>Veuillez envoyer l'ID suivant à votre administrateur pour recevoir votre fichier de licence.</p>
+        
+        <div id="machine-id" class="machine-id-box">Chargement...</div>
+        
+        <textarea id="license-input" placeholder="Collez ici le contenu de votre fichier de licence..."></textarea>
+        
+        <button id="activate-btn">Activer GestStock</button>
+        
+        <div class="footer">
+            SARL EMED SYSTÉME - GestStock ERP
+        </div>
+    </div>
+
+    <script>
+        const machineIdDiv = document.getElementById('machine-id');
+        const licenseInput = document.getElementById('license-input');
+        const activateBtn = document.getElementById('activate-btn');
+
+        // Charger le Machine ID
+        window.electronAPI.getMachineId().then(id => {
+            machineIdDiv.innerText = id;
+        });
+
+        activateBtn.onclick = async () => {
+            const license = licenseInput.value.trim();
+            if (!license) {
+                alert('Veuillez coller votre licence.');
+                return;
+            }
+
+            const success = await window.electronAPI.saveLicense(license);
+            if (success) {
+                alert('Activation réussie ! L\'application va redémarrer.');
+                location.reload();
+            } else {
+                alert('Licence invalide pour cette machine.');
+            }
+        };
+    </script>
+</body>
+</html>

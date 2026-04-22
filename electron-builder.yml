@@ -1,0 +1,57 @@
+appId: com.geststock.erp
+productName: GestStock
+copyright: Copyright © 2026 SARL EMED SYSTÉME
+
+directories:
+  output: dist-electron
+
+npmRebuild: false
+nodeGypRebuild: false
+asar: true
+asarUnpack:
+  - "node_modules/better-sqlite3"
+  - "node_modules/node-machine-id"
+
+files:
+  - "!**/*" # On ignore TOUT par défaut
+  - "electron/**/*.js" # On ne prend que les fichiers compilés
+  - "electron/*.html"
+  - ".next/static/**"
+  - "public/**"
+  - "package.json"
+  - "node_modules/better-sqlite3/**"
+  - "node_modules/node-machine-id/**"
+
+extraResources:
+  - from: prisma/migrations
+    to: migrations
+  - from: prisma/schema.prisma
+    to: schema.prisma
+  - from: scripts/seed-prod.cjs
+    to: seed-prod.cjs
+  - from: .next/standalone
+    to: app-server
+    filter:
+      - "server.js"
+      - "package.json"
+      - "base.db"
+      - ".next/**"
+  - from: .next/standalone/node_modules
+    to: app-server/node_modules
+    filter:
+      - "**/*"
+  - from: .next/static
+    to: app-server/.next/static
+  - from: public
+    to: app-server/public
+
+win:
+  target: nsis
+  icon: build/icon.png
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  language: "1036"
