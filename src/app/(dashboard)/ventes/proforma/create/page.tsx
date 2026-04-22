@@ -26,12 +26,9 @@ export default function CreateProformaPage() {
             clients: clientsRes.data || [],
             products: productsRes.data || []
           });
-        } else {
-          toast.error("Erreur lors de la récupération des clients");
         }
       } catch (error) {
         console.error("Failed to load proforma data:", error);
-        toast.error("Une erreur est survenue lors du chargement des données");
       } finally {
         setIsLoading(false);
       }
@@ -44,7 +41,7 @@ export default function CreateProformaPage() {
       <div className="h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 text-sm font-medium animate-pulse">Chargement des données de vente...</p>
+          <p className="text-slate-500 text-sm">Chargement...</p>
         </div>
       </div>
     );

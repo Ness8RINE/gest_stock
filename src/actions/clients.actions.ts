@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "@/lib/prisma";
+import prisma, { getDbPath } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { logAction } from "@/lib/audit";
 
@@ -9,9 +9,10 @@ export async function getClients() {
     const clients = await prisma.customer.findMany({
       orderBy: { name: 'asc' }
     });
-    return { success: true, data: clients };
+    console.log(`[ACTION] getClients: Found ${clients.length} clients in ${getDbPath()}`);
+    return { success: true, data: clients, debugPath: getDbPath() };
   } catch (error) {
-    console.error("Erreur gnrique lors de la rcupration des clients:", error);
+    console.error("Erreur générique lors de la récupération des clients:", error);
     return { success: false, error: "Erreur lors de la récupération des clients" };
   }
 }
@@ -29,18 +30,24 @@ export async function createClient(data: Omit<any, "id">) {
         mf: data.mf,
         nis: data.nis,
         ai: data.ai,
-      }
+        paymentTerms: data.paymentTerms,
+        creditLimit: data.creditLimit,
+      },
     });
 
     revalidatePath("/ventes/clients");
+    
+    // Log Audit
+    await logAction(null, "CREATE_CUSTOMER", `Nouveau client créé: ${data.name}`);
+    
     return { success: true, data: client };
   } catch (error) {
     console.error("Erreur création client:", error);
-    return { success: false, error: "Création échouée." };
+    return { success: false, error: "Erreur lors de la création du client" };
   }
 }
 
-export async function updateClient(id: string, data: Omit<any, "id">) {
+export async function updateClient(id: string, data: Partial<any>) {
   try {
     const client = await prisma.customer.update({
       where: { id },
@@ -54,21 +61,27 @@ export async function updateClient(id: string, data: Omit<any, "id">) {
         mf: data.mf,
         nis: data.nis,
         ai: data.ai,
-      }
+        paymentTerms: data.paymentTerms,
+        creditLimit: data.creditLimit,
+      },
     });
 
     revalidatePath("/ventes/clients");
+    
+    // Log Audit
+    await logAction(null, "UPDATE_CUSTOMER", `Client mis à jour: ${data.name}`);
+    
     return { success: true, data: client };
   } catch (error) {
-    console.error("Erreur modification client:", error);
-    return { success: false, error: "Modification échouée." };
+    console.error("Erreur mise à jour client:", error);
+    return { success: false, error: "Erreur lors de la mise à jour du client" };
   }
 }
 
 export async function deleteClient(id: string) {
   try {
     await prisma.customer.delete({
-      where: { id }
+      where: { id },
     });
 
     revalidatePath("/ventes/clients");
