@@ -1,20 +1,39 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import path from "path";
+import os from "os";
+import { existsSync } from "fs";
 
 function getDbPath(): string {
-  // En production Electron, DATABASE_URL est défini par main.ts (chemin AppData)
-  // En développement Next.js, on utilise le fichier local dev.db
+  let dbPath = "./dev.db";
+  
   if (process.env.DATABASE_URL) {
-    // Enlever le préfixe "file:" si présent
-    return process.env.DATABASE_URL.replace(/^file:/, "");
+    dbPath = process.env.DATABASE_URL.replace(/^file:/, "");
   }
-  return path.join(process.cwd(), "dev.db");
+
+  if (process.env.NODE_ENV !== "production") {
+    const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+    const desktopDbPath = path.join(appData, "GestStock", "geststock.db");
+    
+    if (existsSync(desktopDbPath)) {
+      return desktopDbPath;
+    }
+  }
+  
+  return path.isAbsolute(dbPath) ? dbPath : path.resolve(process.cwd(), dbPath);
 }
 
 const prismaClientSingleton = () => {
-  const adapter = new PrismaBetterSqlite3({ url: `file:${getDbPath()}` });
-  return new PrismaClient({ adapter });
+  const sqlitePath = getDbPath();
+  const url = `file:${sqlitePath}`;
+
+  // Maintenant que better-sqlite3 est recompilé, on peut l'utiliser partout en toute sécurité
+  const adapter = new PrismaBetterSqlite3({ url });
+  
+  return new PrismaClient({ 
+    // @ts-ignore
+    adapter 
+  });
 };
 
 declare global {
