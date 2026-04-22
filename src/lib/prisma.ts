@@ -38,13 +38,10 @@ const prismaClientSingleton = () => {
     // Si l'adapter échoue (ex: version de Node différente), on bascule sur le driver standard de Prisma
     // Cela garantit que l'application démarre toujours, même avec un problème de compilation
     console.error("[PRISMA] Adapter not available, falling back to standard driver:", error);
+    
     return new PrismaClient({
-      datasources: {
-        db: {
-          url: url
-        }
-      }
-    });
+      datasourceUrl: url
+    } as any);
   }
 };
 
