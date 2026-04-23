@@ -37,6 +37,7 @@ const clientSchema = z.object({
   mf: z.string().optional(),
   nis: z.string().optional(),
   ai: z.string().optional(),
+  agreement: z.string().optional(),
 });
 
 export type ClientFormValues = z.infer<typeof clientSchema>;
@@ -84,6 +85,7 @@ export function ClientForm({ initialData, onSubmit, onCancel }: ClientFormProps)
       mf: "",
       nis: "",
       ai: "",
+      agreement: "",
     },
   });
 
@@ -219,6 +221,7 @@ export function ClientForm({ initialData, onSubmit, onCancel }: ClientFormProps)
                 { name: "mf" as const, label: "Matricule Fiscal", placeholder: "N° MF", color: "text-orange-500", ring: "focus-visible:ring-orange-500/40 focus-visible:border-orange-400" },
                 { name: "nis" as const, label: "N.I.S", placeholder: "N° Identification", color: "text-amber-600", ring: "focus-visible:ring-amber-600/40 focus-visible:border-amber-500" },
                 { name: "ai" as const, label: "Article d'Imposition", placeholder: "Code AI", color: "text-yellow-600", ring: "focus-visible:ring-yellow-500/40 focus-visible:border-yellow-400" },
+                { name: "agreement" as const, label: "N° Agrément", placeholder: "N° Agrément", color: "text-indigo-600", ring: "focus-visible:ring-indigo-500/40 focus-visible:border-indigo-400" },
               ].map((item) => (
                 <FormField
                   key={item.name}

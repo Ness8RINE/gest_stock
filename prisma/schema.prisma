@@ -176,6 +176,7 @@ model Customer {
   mf             String?    // Matricule Fiscal
   nis            String?    // Numéro d'Identification Statistique
   ai             String?    // Article Imposition
+  agreement      String?    // Agrément
   
   paymentTerms   String?
   creditLimit    Float?
@@ -198,7 +199,8 @@ model Supplier {
   mf             String?    // Matricule Fiscal
   nis            String?    // Numéro d'Identification Statistique
   ai             String?    // Article Imposition
-
+  agreement      String?    // Agrément
+  
   paymentTerms   String?
   
   documents      Document[] @relation("SupplierDocuments")

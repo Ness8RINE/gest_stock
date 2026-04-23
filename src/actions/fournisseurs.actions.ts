@@ -29,6 +29,7 @@ export async function createSupplier(data: Omit<any, "id">) {
         mf: data.mf,
         nis: data.nis,
         ai: data.ai,
+        agreement: data.agreement,
       }
     });
 
@@ -55,6 +56,7 @@ export async function updateSupplier(id: string, data: Omit<any, "id">) {
         mf: data.mf,
         nis: data.nis,
         ai: data.ai,
+        agreement: data.agreement,
       }
     });
 

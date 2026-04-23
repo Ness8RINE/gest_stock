@@ -95,7 +95,7 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
     
     doc.setLineWidth(0.2);
     doc.setDrawColor(0);
-    doc.roundedRect(15, y, 90, 35, 3, 3, 'S');
+    doc.roundedRect(15, y, 90, 40, 3, 3, 'S');
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text(partnerLabel, 20, y + 7);
@@ -111,6 +111,7 @@ export const generateProformaPDF = (data: any, action: 'save' | 'open' = 'save')
     doc.text("Tél: " + (partner?.phone || "/"), 20, y + 23);
     doc.text(`RC: ${partner?.rc || "/"} | NIS: ${partner?.nis || "/"}`, 20, y + 27);
     doc.text(`MF: ${partner?.mf || "/"} | AI: ${partner?.ai || "/"}`, 20, y + 31);
+    doc.text(`Agrément: ${partner?.agreement || "/"}`, 20, y + 35);
 
     // BLOC DOCUMENT
     const docX = 130;

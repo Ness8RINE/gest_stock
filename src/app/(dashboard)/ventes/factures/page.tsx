@@ -27,7 +27,8 @@ import {
   ArrowUp,
   ArrowDown,
   Eye,
-  FileCheck
+  FileCheck,
+  FileDown
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -44,6 +45,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { generateProformaPDF } from "@/lib/pdf-generator";
 import { useRouter } from "next/navigation";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type SortConfig = {
   key: "reference" | "date" | "netTotal";
@@ -125,6 +128,41 @@ export default function FactureListPage() {
     return sortConfig.direction === "asc" ? <ArrowUp className="ml-2 h-3 w-3" /> : <ArrowDown className="ml-2 h-3 w-3" />;
   };
 
+  const handleExportListPDF = () => {
+    const doc = new jsPDF();
+    const fN = (n: number) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    const now = new Date().toLocaleDateString("fr-FR");
+
+    doc.setFontSize(20);
+    doc.setTextColor(5, 150, 105); // Emerald-600
+    doc.text("LISTE DES FACTURES CLIENTS", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Généré le: ${now}`, 14, 28);
+    doc.text(`Nombre d'items: ${filteredDocs.length}`, 14, 33);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [["Référence", "Date", "Client", "Statut", "Montant TTC"]],
+      body: filteredDocs.map(d => [
+        d.reference || "-",
+        new Date(d.date).toLocaleDateString("fr-FR"),
+        d.customer?.name || "Client de passage",
+        d.status,
+        `${fN(d.netTotal)} DA`
+      ]),
+      headStyles: { fillColor: [5, 150, 105], fontSize: 10 },
+      styles: { fontSize: 9 },
+      columnStyles: {
+        4: { halign: "right", fontStyle: "bold" }
+      }
+    });
+
+    doc.save(`Factures_Clients_${now.replace(/\//g, "-")}.pdf`);
+    toast.success("Liste PDF générée !");
+  };
+
   return (
     <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50">
       <div className="p-6 flex justify-between items-center">
@@ -140,6 +178,10 @@ export default function FactureListPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={handleExportListPDF} className="border-red-200 text-red-600 hover:bg-red-50">
+            <FileDown className="h-4 w-4 mr-2" />
+            Exporter Liste PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={loadDocs}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Actualiser

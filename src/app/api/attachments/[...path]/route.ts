@@ -5,10 +5,11 @@ import { getAttachmentsPath } from "@/lib/prisma";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const filePath = params.path.join(path.sep);
+    const { path: pathSegments } = await params;
+    const filePath = pathSegments.join(path.sep);
     const absolutePath = path.join(getAttachmentsPath(), filePath);
 
     if (!fs.existsSync(absolutePath)) {

@@ -53,6 +53,9 @@ export default function GrandLivrePage() {
   const exportToPDF = () => {
     const doc = new jsPDF();
     const now = format(new Date(), "dd/MM/yyyy HH:mm");
+    
+    // Helper pour formater les nombres avec espaces (compatible PDF)
+    const fN = (n: number) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
     // Header
     doc.setFontSize(22);
@@ -77,11 +80,11 @@ export default function GrandLivrePage() {
 
     doc.setFontSize(12);
     doc.setTextColor(5, 150, 105); // Emerald
-    doc.text(`${stats.totalIn.toLocaleString()} DA`, 20, 58);
+    doc.text(`${fN(stats.totalIn)} DA`, 20, 58);
     doc.setTextColor(225, 29, 72); // Rose
-    doc.text(`${stats.totalOut.toLocaleString()} DA`, 80, 58);
+    doc.text(`${fN(stats.totalOut)} DA`, 80, 58);
     doc.setTextColor(79, 70, 229); // Indigo
-    doc.text(`${stats.netBalance.toLocaleString()} DA`, 145, 58);
+    doc.text(`${fN(stats.netBalance)} DA`, 145, 58);
 
     // Table
     autoTable(doc, {
@@ -93,7 +96,7 @@ export default function GrandLivrePage() {
         e.type === "IN" ? "Encaissement" : "Décaissement",
         e.paymentMethod,
         e.referenceNumber || "-",
-        `${e.type === "IN" ? "+" : "-"} ${e.amount.toLocaleString()}`
+        `${e.type === "IN" ? "+" : "-"} ${fN(e.amount)}`
       ]),
       headStyles: { fillColor: [79, 70, 229], fontSize: 10, fontStyle: "bold" },
       styles: { fontSize: 9, cellPadding: 3 },

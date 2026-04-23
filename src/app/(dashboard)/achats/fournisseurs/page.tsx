@@ -108,8 +108,8 @@ export default function FournisseursPage() {
     doc.text("Liste des Fournisseurs - GestStock", 14, 15);
     autoTable(doc, {
       startY: 22,
-      head: [["Nom/Raison Sociale", "Pays", "Contact", "Téléphone", "RC", "MF"]],
-      body: suppliers.map(s => [s.name, s.country || "-", s.contactPerson || "-", s.phone || "-", s.rc || "-", s.mf || "-"]),
+      head: [["Nom/Raison Sociale", "Pays", "Contact", "RC", "MF", "Agrément"]],
+      body: suppliers.map(s => [s.name, s.country || "-", s.contactPerson || "-", s.rc || "-", s.mf || "-", (s as any).agreement || "-"]),
       headStyles: { fillColor: [20, 184, 166] },
     });
     doc.save("fournisseurs_export.pdf");

@@ -37,6 +37,7 @@ const supplierSchema = z.object({
   mf: z.string().optional(),
   nis: z.string().optional(),
   ai: z.string().optional(),
+  agreement: z.string().optional(),
 });
 
 export type SupplierFormValues = z.infer<typeof supplierSchema>;
@@ -85,6 +86,7 @@ export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormPr
       mf: "",
       nis: "",
       ai: "",
+      agreement: "",
     },
   });
 
@@ -233,6 +235,7 @@ export function SupplierForm({ initialData, onSubmit, onCancel }: SupplierFormPr
                 { name: "mf" as const, label: "Matricule Fiscal", placeholder: "N° MF", ring: "focus-visible:ring-cyan-500/40 focus-visible:border-cyan-400", border: "border-teal-200/70 dark:border-teal-800/30" },
                 { name: "nis" as const, label: "N.I.S", placeholder: "N° Identification", ring: "focus-visible:ring-teal-600/40 focus-visible:border-teal-500", border: "border-teal-200/70 dark:border-teal-800/30" },
                 { name: "ai" as const, label: "Article d'Imposition", placeholder: "Code AI", ring: "focus-visible:ring-emerald-500/40 focus-visible:border-emerald-400", border: "border-teal-200/70 dark:border-teal-800/30" },
+                { name: "agreement" as const, label: "N° Agrément", placeholder: "N° Agrément", ring: "focus-visible:ring-teal-600/40 focus-visible:border-teal-500", border: "border-teal-200/70 dark:border-teal-800/30" },
               ].map((item) => (
                 <FormField
                   key={item.name}

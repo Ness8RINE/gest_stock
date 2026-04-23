@@ -103,8 +103,8 @@ export default function ClientsPage() {
     doc.text("Liste des Clients - GestStock", 14, 15);
     autoTable(doc, {
       startY: 22,
-      head: [["Nom/Raison Sociale", "Contact", "Téléphone", "Statut", "RC", "MF"]],
-      body: clients.map(c => [c.name, c.contactPerson || "-", c.phone || "-", c.legalStatus || "-", c.rc || "-", c.mf || "-"]),
+      head: [["Nom/Raison Sociale", "Contact", "Statut", "RC", "MF", "Agrément"]],
+      body: clients.map(c => [c.name, c.contactPerson || "-", c.legalStatus || "-", c.rc || "-", c.mf || "-", (c as any).agreement || "-"]),
       headStyles: { fillColor: [99, 102, 241] },
     });
     doc.save("clients_export.pdf");
