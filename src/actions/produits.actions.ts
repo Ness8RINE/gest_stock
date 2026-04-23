@@ -92,6 +92,7 @@ export async function createProduct(data: any) {
     });
 
     revalidatePath("/stock/produits");
+    revalidatePath("/stock/inventaire");
     
     // Log Audit
     await logAction(null, "CREATE_PRODUCT", `Produit créé: ${product.reference} - ${product.designation}`);
@@ -143,6 +144,7 @@ export async function updateProduct(id: string, data: any) {
     });
 
     revalidatePath("/stock/produits");
+    revalidatePath("/stock/inventaire");
     
     // Log Audit
     await logAction(null, "UPDATE_PRODUCT", `Module Produit: ${product.reference} mis à jour.`);
@@ -170,6 +172,7 @@ export async function deleteProduct(id: string) {
     await logAction(null, "DELETE_PRODUCT", `ID Produit supprimé: ${id}`);
     
     revalidatePath("/stock/produits");
+    revalidatePath("/stock/inventaire");
     return { success: true };
   } catch (error) {
     console.error("Erreur suppression produit:", error);

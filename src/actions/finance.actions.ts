@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "@/lib/prisma";
+import prisma, { getDbPath, getAttachmentsPath } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { DocumentStatus } from "@prisma/client";
 import { logAction } from "@/lib/audit";
@@ -18,9 +18,9 @@ export async function uploadPaymentAttachment(formData: FormData) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Création du chemin
+    // Création du chemin dans AppData
     const filename = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "payments");
+    const uploadDir = path.join(getAttachmentsPath(), "payments");
     
     // S'assurer que le dossier existe
     await mkdir(uploadDir, { recursive: true });
@@ -28,9 +28,10 @@ export async function uploadPaymentAttachment(formData: FormData) {
     const filePath = path.join(uploadDir, filename);
     await writeFile(filePath, buffer);
 
+    // L'URL pointe maintenant vers notre API de lecture
     return { 
       success: true, 
-      url: `/uploads/payments/${filename}` 
+      url: `/api/attachments/payments/${filename}` 
     };
   } catch (error) {
     console.error("Upload Error:", error);

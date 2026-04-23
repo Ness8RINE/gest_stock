@@ -63,14 +63,17 @@ export default function InventoryList({ initialProducts, warehouses, categories 
 
   // Filtrage et agrégation
   const filteredData = useMemo(() => {
+    console.log(`[DEBUG] InventoryList: filtering ${initialProducts.length} products`);
     return (initialProducts as ProductStock[]).filter((p) => {
-      const matchesSearch = p.designation.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          p.reference.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === "all" || p.category.name === selectedCategory;
+      const matchesSearch = (p.designation || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (p.reference || "").toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const categoryName = p.category?.name || "N/A";
+      const matchesCategory = selectedCategory === "all" || categoryName === selectedCategory;
       
       // Si on filtre par dépôt, on doit vérifier s'il a du stock dans ce dépôt précis
       if (selectedWarehouse !== "all") {
-        return matchesSearch && matchesCategory && p.inventories.some(inv => inv.warehouse.name === selectedWarehouse);
+        return matchesSearch && matchesCategory && (p.inventories || []).some(inv => inv.warehouse?.name === selectedWarehouse);
       }
       
       return matchesSearch && matchesCategory;

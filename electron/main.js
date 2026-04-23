@@ -187,8 +187,6 @@ function createWindow() {
     else {
         mainWindow.loadFile(path_1.default.join(__dirname, 'activation.html'));
     }
-    // ON FORCE LES DEVTOOLS POUR DEBUGGER LA PAGE BLANCHE
-    mainWindow.webContents.openDevTools();
     if (!isDev) {
         mainWindow.setMenuBarVisibility(false);
     }
