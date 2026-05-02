@@ -137,8 +137,8 @@ export default function ProfessionalDashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-7">
-        {/* MAIN CHART */}
-        <Card className="lg:col-span-4 border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-950 rounded-3xl overflow-hidden">
+        {/* MAIN CHART - Plein écran horizontal */}
+        <Card className="lg:col-span-7 border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-950 rounded-3xl overflow-hidden">
           <CardHeader className="p-8 pb-4">
             <div className="flex items-center justify-between">
               <div>
@@ -170,51 +170,9 @@ export default function ProfessionalDashboard() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-
-        {/* DISTRIBUTION CHART */}
-        <Card className="lg:col-span-3 border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-950 rounded-3xl overflow-hidden self-start">
-          <CardHeader className="p-8 pb-4 text-center">
-            <CardTitle className="text-xl font-black">Répartition du Stock</CardTitle>
-            <CardDescription>Par familles de catégories</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 pt-0 flex flex-col items-center min-h-[350px]">
-            <div className="w-full h-[250px] relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={8}
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                 <span className="text-[10px] font-black text-slate-400 uppercase">Categories</span>
-                 <span className="text-2xl font-black text-slate-800 dark:text-white">{categoryData.length}</span>
-              </div>
-            </div>
-            <div className="w-full grid grid-cols-2 gap-3 mt-4">
-               {categoryData.slice(0, 4).map((item, i) => (
-                 <div key={i} className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
-                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase truncate max-w-[100px]">{item.name}</span>
-                 </div>
-               ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6">
         {/* TOP PRODUCTS */}
         <Card className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-950 rounded-3xl overflow-hidden">
           <CardHeader className="p-8 pb-4">
@@ -238,56 +196,6 @@ export default function ProfessionalDashboard() {
                 </BarChart>
              </ResponsiveContainer>
           </CardContent>
-        </Card>
-
-        {/* RECENT MOVEMENTS */}
-        <Card className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-950 rounded-3xl overflow-hidden">
-           <CardHeader className="p-8 pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                   <CardTitle className="text-xl font-black">Activité Logistique</CardTitle>
-                   <CardDescription>Mouvements de stock en temps réel</CardDescription>
-                </div>
-                <History className="text-indigo-600/50" />
-              </div>
-           </CardHeader>
-           <CardContent className="p-8 pt-2">
-              <div className="space-y-4">
-                 {movements.map((move, i) => (
-                   <motion.div 
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    key={move.id} 
-                    className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors border border-transparent hover:border-slate-100 dark:hover:border-slate-800"
-                   >
-                      <div className="flex items-center gap-4 min-w-0">
-                         <div className={cn(
-                           "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-                           move.type === "IN" ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
-                         )}>
-                            {move.type === "IN" ? <TrendingUp size={18} /> : <Box size={18} />}
-                         </div>
-                         <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-black text-slate-800 dark:text-slate-200 truncate uppercase">{move.product.designation}</span>
-                            <span className="text-[10px] font-bold text-slate-400">Dépôt: {move.warehouse.name} • {new Date(move.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-                         </div>
-                      </div>
-                      <Badge variant="outline" className={cn(
-                        "font-black text-xs border-none",
-                        move.type === "IN" ? "text-emerald-500" : "text-rose-500"
-                      )}>
-                        {move.type === "IN" ? "+" : "-"}{move.quantity.toLocaleString()}
-                      </Badge>
-                   </motion.div>
-                 ))}
-                 <div className="pt-2">
-                    <Button variant="ghost" className="w-full text-xs font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-50 rounded-xl" onClick={() => (window.location.href='/stock/mouvements')}>
-                       Voir tout l'historique
-                    </Button>
-                 </div>
-              </div>
-           </CardContent>
         </Card>
       </div>
     </div>

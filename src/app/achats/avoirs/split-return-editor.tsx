@@ -86,18 +86,20 @@ export default function SplitReturnEditor({ suppliers, products }: SplitReturnEd
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
-  const watchLines = watch("lines");
-
-  // Calculs financiers dynamiques
-  const { grossTotal, taxTotal, netTotal } = useMemo(() => {
-    let g = 0, t = 0;
-    watchLines.forEach((line) => {
-      const lineHT = (line.quantity || 0) * (line.unitCost || 0);
-      g += lineHT;
-      t += lineHT * ((line.taxRate || 0) / 100);
-    });
-    return { grossTotal: g, taxTotal: t, netTotal: g + t };
-  }, [watchLines]);
+  const watchLines = watch("lines") || [];
+  
+  // Calculs financiers dynamiques (synchrone au rendu comme dans les proformas)
+  let grossTotal = 0;
+  let taxTotal = 0;
+  watchLines.forEach((line) => {
+    const qty = Number(line.quantity) || 0;
+    const uc = Number(line.unitCost) || 0;
+    const tr = Number(line.taxRate) || 0;
+    const lineHT = qty * uc;
+    grossTotal += lineHT;
+    taxTotal += lineHT * (tr / 100);
+  });
+  const netTotal = grossTotal + taxTotal;
 
   const addProductToReturn = (prd: Product, inv: Inventory) => {
     // Éviter d'ajouter deux fois le même lot/dépôt

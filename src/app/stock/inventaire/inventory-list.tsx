@@ -3,10 +3,13 @@
 import React, { useState, useMemo } from "react";
 import { 
   Search, Package, Filter, Warehouse as WarehouseIcon, 
-  ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, History 
+  ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, History, FileText 
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -99,6 +102,42 @@ export default function InventoryList({ initialProducts, warehouses, categories 
     };
   }, [filteredData, selectedWarehouse]);
 
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Inventaire Global des Stocks", 14, 15);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Généré le : ${new Date().toLocaleString()}`, 14, 22);
+    
+    const tableData = filteredData.map(p => {
+      const relevantInventories = selectedWarehouse === "all" 
+        ? p.inventories 
+        : p.inventories.filter(inv => inv.warehouse.name === selectedWarehouse);
+      const totalQty = relevantInventories.reduce((acc, inv) => acc + inv.quantity, 0);
+      return [
+        `${p.designation}\n(${p.reference})`,
+        p.category.name,
+        (totalQty.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")) + " " + p.unit
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 30,
+      head: [["Produit / Référence", "Catégorie", "Quantité Totale"]],
+      body: tableData,
+      headStyles: { fillColor: [5, 150, 105] }, // Emerald-600
+      styles: { fontSize: 9, cellPadding: 3 },
+      columnStyles: {
+        0: { cellWidth: 100 },
+        2: { halign: 'right' }
+      }
+    });
+
+    doc.save(`inventaire_${new Date().toISOString().split('T')[0]}.pdf`);
+    toast.success("PDF d'inventaire généré !");
+  };
+
   return (
     <div className="space-y-6">
       {/* HEADER STATS */}
@@ -125,17 +164,6 @@ export default function InventoryList({ initialProducts, warehouses, categories 
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-md bg-white dark:bg-slate-950">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500 uppercase">Alertes Stock Bas</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{stats.criticalItems}</div>
-            <p className="text-xs text-slate-400 mt-1">Produits avec moins de 10 unités</p>
-          </CardContent>
-        </Card>
-
         <Card className="border-none shadow-md bg-emerald-600 dark:bg-emerald-900/50 text-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium uppercase opacity-80">Valeur Totale Stock</CardTitle>
@@ -159,6 +187,13 @@ export default function InventoryList({ initialProducts, warehouses, categories 
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+
+        <button 
+          onClick={handleExportPDF}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold shadow-lg hover:opacity-90 transition-all"
+        >
+          <FileText className="h-4 w-4" /> Exporter PDF
+        </button>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">

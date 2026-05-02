@@ -5,8 +5,8 @@ import { getProductsWithStock } from "@/app/actions/produits.actions";
 import { getSaleDocumentById } from "@/app/actions/ventes.actions";
 import { notFound } from "next/navigation";
 
-export default async function EditDeliveryPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default async function EditDeliveryPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   
   const [clientsRes, productsRes, docRes] = await Promise.all([
     getClients(),

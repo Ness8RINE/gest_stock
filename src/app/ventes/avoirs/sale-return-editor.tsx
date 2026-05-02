@@ -86,18 +86,20 @@ export default function SaleReturnEditor({ customers, products }: SaleReturnEdit
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
-  const watchLines = watch("lines");
-
-  // Calculs financiers dynamiques
-  const { grossTotal, taxTotal, netTotal } = useMemo(() => {
-    let g = 0, t = 0;
-    watchLines.forEach((line) => {
-      const lineHT = (line.quantity || 0) * (line.unitPrice || 0);
-      g += lineHT;
-      t += lineHT * ((line.taxRate || 0) / 100);
-    });
-    return { grossTotal: g, taxTotal: t, netTotal: g + t };
-  }, [watchLines]);
+  const watchLines = watch("lines") || [];
+  
+  // Calculs financiers dynamiques (synchrone au rendu comme dans les proformas)
+  let grossTotal = 0;
+  let taxTotal = 0;
+  watchLines.forEach((line) => {
+    const qty = Number(line.quantity) || 0;
+    const up = Number(line.unitPrice) || 0;
+    const tr = Number(line.taxRate) || 0;
+    const lineHT = qty * up;
+    grossTotal += lineHT;
+    taxTotal += lineHT * (tr / 100);
+  });
+  const netTotal = grossTotal + taxTotal;
 
   const addProductToReturn = (prd: Product, inv: Inventory) => {
     const colisage = prd.piecesPerCarton || 1;

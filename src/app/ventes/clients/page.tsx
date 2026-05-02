@@ -183,15 +183,11 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Search */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
           <Input placeholder="Rechercher par nom, RC..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 bg-white dark:bg-slate-950 border-slate-200 rounded-lg" />
         </div>
-        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition-colors">
-          <Upload className="h-3.5 w-3.5" /> Importer CSV
-        </button>
       </div>
 
       {/* Table */}
